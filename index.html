@@ -465,23 +465,109 @@ const {
 /* ============ KONFIGURACJA SUPABASE ============ */
 const SUPABASE_URL = "https://vgnkrgrmdauwzugskxsc.supabase.co";
 const SUPABASE_KEY = "sb_publishable_o_gCTwEbzh2WAen3toyM6A_ttk4i95B";
-const H = {
-  "apikey": SUPABASE_KEY,
-  "Authorization": "Bearer " + SUPABASE_KEY,
-  "Content-Type": "application/json"
-};
-async function sbGet(table, query = "") {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
-    headers: H
+/* ============ SESJA / LOGOWANIE ============ */
+let authSession = null;
+function loadSession() {
+  try {
+    const s = localStorage.getItem("gardenspa_session");
+    if (s) authSession = JSON.parse(s);
+  } catch (_) {}
+}
+function saveSession(s) {
+  authSession = s;
+  try {
+    localStorage.setItem("gardenspa_session", JSON.stringify(s));
+  } catch (_) {}
+}
+function clearSession() {
+  authSession = null;
+  try {
+    localStorage.removeItem("gardenspa_session");
+  } catch (_) {}
+}
+function currentUserEmail() {
+  return authSession && authSession.user ? authSession.user.email : "";
+}
+function authHeaders() {
+  const token = authSession && authSession.access_token ? authSession.access_token : SUPABASE_KEY;
+  return {
+    "apikey": SUPABASE_KEY,
+    "Authorization": "Bearer " + token,
+    "Content-Type": "application/json"
+  };
+}
+async function signIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      email,
+      password
+    })
   });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error_description || data.msg || data.error || "Błędny e-mail lub hasło");
+  saveSession({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    user: data.user
+  });
+  return data;
+}
+async function refreshSession() {
+  if (!authSession || !authSession.refresh_token) throw new Error("brak sesji");
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      refresh_token: authSession.refresh_token
+    })
+  });
+  if (!r.ok) {
+    clearSession();
+    throw new Error("sesja wygasła");
+  }
+  const data = await r.json();
+  saveSession({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    user: data.user
+  });
+  return data;
+}
+function signOut() {
+  clearSession();
+  location.reload();
+}
+
+/* ============ DOSTĘP DO BAZY ============ */
+async function sbRaw(path, opts = {}) {
+  opts.headers = Object.assign({}, authHeaders(), opts.headers || {});
+  let r = await fetch(`${SUPABASE_URL}${path}`, opts);
+  if (r.status === 401 && authSession && authSession.refresh_token) {
+    try {
+      await refreshSession();
+      opts.headers = Object.assign({}, authHeaders(), opts.headers);
+      r = await fetch(`${SUPABASE_URL}${path}`, opts);
+    } catch (_) {}
+  }
+  return r;
+}
+async function sbGet(table, query = "") {
+  const r = await sbRaw(`/rest/v1/${table}?${query}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 async function sbInsert(table, row) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+  const r = await sbRaw(`/rest/v1/${table}`, {
     method: "POST",
     headers: {
-      ...H,
       "Prefer": "return=representation"
     },
     body: JSON.stringify(row)
@@ -490,10 +576,9 @@ async function sbInsert(table, row) {
   return r.json();
 }
 async function sbUpdate(table, idCol, idVal, patch) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${idCol}=eq.${idVal}`, {
+  const r = await sbRaw(`/rest/v1/${table}?${idCol}=eq.${idVal}`, {
     method: "PATCH",
     headers: {
-      ...H,
       "Prefer": "return=representation"
     },
     body: JSON.stringify(patch)
@@ -502,9 +587,8 @@ async function sbUpdate(table, idCol, idVal, patch) {
   return r.json();
 }
 async function sbDelete(table, idVal) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${idVal}`, {
-    method: "DELETE",
-    headers: H
+  const r = await sbRaw(`/rest/v1/${table}?id=eq.${idVal}`, {
+    method: "DELETE"
   });
   if (!r.ok) throw new Error(await r.text());
 }
@@ -749,12 +833,158 @@ function Modal({
 }
 
 /* ============ GŁÓWNA APLIKACJA ============ */
+/* ============ EKRAN LOGOWANIA ============ */
+function Login({
+  onSuccess,
+  settings
+}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (!email || !password) {
+      setErr("Podaj e-mail i hasło.");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      await signIn(email.trim(), password);
+      onSuccess();
+    } catch (ex) {
+      setErr(String(ex.message || ex));
+      setBusy(false);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: "100vh",
+      padding: "20px",
+      background: "linear-gradient(135deg,#1b5e20,#2e7d32)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff",
+      borderRadius: 16,
+      padding: "34px 30px",
+      width: "100%",
+      maxWidth: 380,
+      boxShadow: "0 18px 50px rgba(0,0,0,.3)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      marginBottom: 22
+    }
+  }, settings && settings.logo_url ? /*#__PURE__*/React.createElement("img", {
+    src: settings.logo_url,
+    style: {
+      height: 56,
+      marginBottom: 10
+    }
+  }) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 40
+    }
+  }, "\uD83C\uDF3F"), /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontFamily: "Georgia,serif",
+      color: "#1b5e20",
+      fontSize: 26,
+      margin: "6px 0 2px"
+    }
+  }, settings && settings.company_name || "GardenSpa"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#6b7a72",
+      fontSize: 13
+    }
+  }, "Zaloguj si\u0119, aby zarz\u0105dza\u0107 firm\u0105")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 13
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: 12.5,
+      fontWeight: 600,
+      color: "#6b7a72",
+      marginBottom: 5
+    }
+  }, "E-mail"), /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    value: email,
+    onChange: e => setEmail(e.target.value),
+    onKeyDown: e => e.key === "Enter" && submit(),
+    style: {
+      width: "100%",
+      padding: "10px 12px",
+      border: "1px solid #e3e0d6",
+      borderRadius: 8,
+      fontSize: 15,
+      boxSizing: "border-box"
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: "block",
+      fontSize: 12.5,
+      fontWeight: 600,
+      color: "#6b7a72",
+      marginBottom: 5
+    }
+  }, "Has\u0142o"), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    value: password,
+    onChange: e => setPassword(e.target.value),
+    onKeyDown: e => e.key === "Enter" && submit(),
+    style: {
+      width: "100%",
+      padding: "10px 12px",
+      border: "1px solid #e3e0d6",
+      borderRadius: 8,
+      fontSize: 15,
+      boxSizing: "border-box"
+    }
+  })), err && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fbeaea",
+      color: "#8a2018",
+      padding: "10px 12px",
+      borderRadius: 8,
+      fontSize: 13,
+      marginBottom: 14
+    }
+  }, err), /*#__PURE__*/React.createElement("button", {
+    onClick: submit,
+    disabled: busy,
+    style: {
+      width: "100%",
+      background: busy ? "#9bbf9d" : "#2e7d32",
+      color: "#fff",
+      border: 0,
+      padding: "12px",
+      borderRadius: 9,
+      fontSize: 15,
+      fontWeight: 600,
+      cursor: busy ? "default" : "pointer"
+    }
+  }, busy ? "Logowanie…" : "Zaloguj się")));
+}
 function App() {
   const [tab, setTab] = useState("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
+  const [authed, setAuthed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [settings, setSettings] = useState({});
   const [equipment, setEquipment] = useState([]);
   const [clients, setClients] = useState([]);
@@ -808,17 +1038,32 @@ function App() {
     }
     setLoading(false);
   }, []);
+  // sprawdzenie sesji przy starcie
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    (async () => {
+      loadSession();
+      if (authSession && authSession.refresh_token) {
+        try {
+          await refreshSession();
+          setAuthed(true);
+        } catch (_) {
+          setAuthed(false);
+        }
+      }
+      setAuthChecked(true);
+    })();
+  }, []);
+  useEffect(() => {
+    if (authed) loadAll();
+  }, [loadAll, authed]);
   // odświeżanie przy powrocie do okna (synchronizacja między urządzeniami)
   useEffect(() => {
     const f = () => {
-      if (!document.hidden) loadAll();
+      if (!document.hidden && authed) loadAll();
     };
     document.addEventListener("visibilitychange", f);
     return () => document.removeEventListener("visibilitychange", f);
-  }, [loadAll]);
+  }, [loadAll, authed]);
   const brand = settings.brand_color || "#2e7d32";
   useEffect(() => {
     document.documentElement.style.setProperty("--green", brand);
@@ -855,6 +1100,21 @@ function App() {
     setTab(t);
     setMenuOpen(false);
   };
+  if (!authChecked) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      height: "100vh",
+      fontFamily: "Georgia,serif",
+      color: "#2e7d32",
+      fontSize: 18
+    }
+  }, "Sprawdzanie sesji\u2026");
+  if (!authed) return /*#__PURE__*/React.createElement(Login, {
+    onSuccess: () => setAuthed(true),
+    settings: settings
+  });
   return /*#__PURE__*/React.createElement("div", {
     className: "app"
   }, /*#__PURE__*/React.createElement("aside", {
@@ -895,7 +1155,33 @@ function App() {
       minWidth: 22,
       textAlign: "center"
     }
-  }, alerts.length))))), menuOpen && /*#__PURE__*/React.createElement("div", {
+  }, alerts.length)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 18,
+      padding: "14px 18px 4px",
+      borderTop: "1px solid rgba(255,255,255,.18)",
+      fontSize: 12,
+      color: "#cfe3cf"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 8,
+      opacity: .85,
+      wordBreak: "break-all"
+    }
+  }, "\uD83D\uDC64 ", currentUserEmail()), /*#__PURE__*/React.createElement("button", {
+    onClick: signOut,
+    style: {
+      background: "rgba(255,255,255,.14)",
+      border: 0,
+      color: "#fff",
+      padding: "8px 12px",
+      borderRadius: 8,
+      cursor: "pointer",
+      fontSize: 13,
+      width: "100%"
+    }
+  }, "Wyloguj si\u0119"))), menuOpen && /*#__PURE__*/React.createElement("div", {
     className: "overlay no-print",
     style: {
       zIndex: 55
