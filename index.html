@@ -545,16 +545,63 @@ function signOut() {
   clearSession();
   location.reload();
 }
+async function sendPasswordReset(email) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+    method: "POST",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      email
+    })
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error_description || data.msg || data.error || "Nie udało się wysłać e-maila");
+  return true;
+}
+async function updatePassword(token, newPassword) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + token,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      password: newPassword
+    })
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error_description || data.msg || data.error || "Nie udało się zmienić hasła");
+  return data;
+}
+function parseRecoveryHash() {
+  try {
+    const hash = (window.location.hash || "").replace(/^#/, "");
+    if (!hash) return null;
+    const params = new URLSearchParams(hash);
+    if (params.get("type") === "recovery" && params.get("access_token")) {
+      return {
+        token: params.get("access_token")
+      };
+    }
+  } catch (_) {}
+  return null;
+}
 
 /* ============ DOSTĘP DO BAZY ============ */
 async function sbRaw(path, opts = {}) {
-  opts.headers = Object.assign({}, authHeaders(), opts.headers || {});
-  let r = await fetch(`${SUPABASE_URL}${path}`, opts);
+  const userHeaders = opts.headers || {};
+  const send = () => fetch(`${SUPABASE_URL}${path}`, {
+    ...opts,
+    headers: Object.assign({}, userHeaders, authHeaders())
+  });
+  let r = await send();
   if (r.status === 401 && authSession && authSession.refresh_token) {
     try {
       await refreshSession();
-      opts.headers = Object.assign({}, authHeaders(), opts.headers);
-      r = await fetch(`${SUPABASE_URL}${path}`, opts);
+      r = await send();
     } catch (_) {}
   }
   return r;
@@ -834,29 +881,10 @@ function Modal({
 
 /* ============ GŁÓWNA APLIKACJA ============ */
 /* ============ EKRAN LOGOWANIA ============ */
-function Login({
-  onSuccess,
-  settings
+function AuthShell({
+  settings,
+  children
 }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
-  const submit = async () => {
-    if (!email || !password) {
-      setErr("Podaj e-mail i hasło.");
-      return;
-    }
-    setBusy(true);
-    setErr("");
-    try {
-      await signIn(email.trim(), password);
-      onSuccess();
-    } catch (ex) {
-      setErr(String(ex.message || ex));
-      setBusy(false);
-    }
-  };
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -897,85 +925,294 @@ function Login({
       fontSize: 26,
       margin: "6px 0 2px"
     }
-  }, settings && settings.company_name || "GardenSpa"), /*#__PURE__*/React.createElement("p", {
+  }, settings && settings.company_name || "GardenSpa")), children));
+}
+const inputStyle = {
+  width: "100%",
+  padding: "10px 12px",
+  border: "1px solid #e3e0d6",
+  borderRadius: 8,
+  fontSize: 15,
+  boxSizing: "border-box"
+};
+const labelStyle = {
+  display: "block",
+  fontSize: 12.5,
+  fontWeight: 600,
+  color: "#6b7a72",
+  marginBottom: 5
+};
+const errBox = {
+  background: "#fbeaea",
+  color: "#8a2018",
+  padding: "10px 12px",
+  borderRadius: 8,
+  fontSize: 13,
+  marginBottom: 14
+};
+const okBox = {
+  background: "#e8f3e9",
+  color: "#1b5e20",
+  padding: "10px 12px",
+  borderRadius: 8,
+  fontSize: 13,
+  marginBottom: 14
+};
+const primaryBtn = busy => ({
+  width: "100%",
+  background: busy ? "#9bbf9d" : "#2e7d32",
+  color: "#fff",
+  border: 0,
+  padding: "12px",
+  borderRadius: 9,
+  fontSize: 15,
+  fontWeight: 600,
+  cursor: busy ? "default" : "pointer"
+});
+function Login({
+  onSuccess,
+  settings
+}) {
+  const [view, setView] = useState("login"); // "login" | "forgot" | "forgot_sent"
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submitLogin = async () => {
+    if (!email || !password) {
+      setErr("Podaj e-mail i hasło.");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      await signIn(email.trim(), password);
+      onSuccess();
+    } catch (ex) {
+      setErr(String(ex.message || ex));
+      setBusy(false);
+    }
+  };
+  const submitReset = async () => {
+    if (!email) {
+      setErr("Podaj e-mail.");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      await sendPasswordReset(email.trim());
+      setView("forgot_sent");
+      setBusy(false);
+    } catch (ex) {
+      setErr(String(ex.message || ex));
+      setBusy(false);
+    }
+  };
+  if (view === "forgot_sent") {
+    return /*#__PURE__*/React.createElement(AuthShell, {
+      settings: settings
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: "#6b7a72",
+        fontSize: 13,
+        textAlign: "center",
+        marginBottom: 18
+      }
+    }, "Resetowanie has\u0142a"), /*#__PURE__*/React.createElement("div", {
+      style: okBox
+    }, "Je\u015Bli ten e-mail jest zarejestrowany, wys\u0142ali\u015Bmy na niego ", /*#__PURE__*/React.createElement("b", null, "link do zmiany has\u0142a"), ". Sprawd\u017A skrzynk\u0119 (tak\u017Ce folder spam)."), /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        setView("login");
+        setErr("");
+        setPassword("");
+      },
+      style: primaryBtn(false)
+    }, "Powr\xF3t do logowania"));
+  }
+  if (view === "forgot") {
+    return /*#__PURE__*/React.createElement(AuthShell, {
+      settings: settings
+    }, /*#__PURE__*/React.createElement("p", {
+      style: {
+        color: "#6b7a72",
+        fontSize: 13,
+        textAlign: "center",
+        marginBottom: 18
+      }
+    }, "Zapomnia\u0142a\u015B has\u0142a? Wpisz sw\xF3j e-mail \u2014 wy\u015Blemy link do zmiany has\u0142a."), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 13
+      }
+    }, /*#__PURE__*/React.createElement("label", {
+      style: labelStyle
+    }, "E-mail"), /*#__PURE__*/React.createElement("input", {
+      type: "email",
+      value: email,
+      onChange: e => setEmail(e.target.value),
+      onKeyDown: e => e.key === "Enter" && submitReset(),
+      style: inputStyle
+    })), err && /*#__PURE__*/React.createElement("div", {
+      style: errBox
+    }, err), /*#__PURE__*/React.createElement("button", {
+      onClick: submitReset,
+      disabled: busy,
+      style: primaryBtn(busy)
+    }, busy ? "Wysyłanie…" : "Wyślij link do zmiany hasła"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: "center",
+        marginTop: 14
+      }
+    }, /*#__PURE__*/React.createElement("a", {
+      onClick: () => {
+        setView("login");
+        setErr("");
+      },
+      style: {
+        color: "#2e7d32",
+        fontSize: 13,
+        cursor: "pointer",
+        textDecoration: "underline"
+      }
+    }, "\u2190 Powr\xF3t do logowania")));
+  }
+  return /*#__PURE__*/React.createElement(AuthShell, {
+    settings: settings
+  }, /*#__PURE__*/React.createElement("p", {
     style: {
       color: "#6b7a72",
-      fontSize: 13
+      fontSize: 13,
+      textAlign: "center",
+      marginBottom: 18
     }
-  }, "Zaloguj si\u0119, aby zarz\u0105dza\u0107 firm\u0105")), /*#__PURE__*/React.createElement("div", {
+  }, "Zaloguj si\u0119, aby zarz\u0105dza\u0107 firm\u0105"), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 13
     }
   }, /*#__PURE__*/React.createElement("label", {
-    style: {
-      display: "block",
-      fontSize: 12.5,
-      fontWeight: 600,
-      color: "#6b7a72",
-      marginBottom: 5
-    }
+    style: labelStyle
   }, "E-mail"), /*#__PURE__*/React.createElement("input", {
     type: "email",
     value: email,
     onChange: e => setEmail(e.target.value),
-    onKeyDown: e => e.key === "Enter" && submit(),
-    style: {
-      width: "100%",
-      padding: "10px 12px",
-      border: "1px solid #e3e0d6",
-      borderRadius: 8,
-      fontSize: 15,
-      boxSizing: "border-box"
-    }
+    onKeyDown: e => e.key === "Enter" && submitLogin(),
+    style: inputStyle
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 16
     }
   }, /*#__PURE__*/React.createElement("label", {
-    style: {
-      display: "block",
-      fontSize: 12.5,
-      fontWeight: 600,
-      color: "#6b7a72",
-      marginBottom: 5
-    }
+    style: labelStyle
   }, "Has\u0142o"), /*#__PURE__*/React.createElement("input", {
     type: "password",
     value: password,
     onChange: e => setPassword(e.target.value),
-    onKeyDown: e => e.key === "Enter" && submit(),
-    style: {
-      width: "100%",
-      padding: "10px 12px",
-      border: "1px solid #e3e0d6",
-      borderRadius: 8,
-      fontSize: 15,
-      boxSizing: "border-box"
-    }
+    onKeyDown: e => e.key === "Enter" && submitLogin(),
+    style: inputStyle
   })), err && /*#__PURE__*/React.createElement("div", {
+    style: errBox
+  }, err), /*#__PURE__*/React.createElement("button", {
+    onClick: submitLogin,
+    disabled: busy,
+    style: primaryBtn(busy)
+  }, busy ? "Logowanie…" : "Zaloguj się"), /*#__PURE__*/React.createElement("div", {
     style: {
-      background: "#fbeaea",
-      color: "#8a2018",
-      padding: "10px 12px",
-      borderRadius: 8,
-      fontSize: 13,
-      marginBottom: 14
+      textAlign: "center",
+      marginTop: 14
     }
+  }, /*#__PURE__*/React.createElement("a", {
+    onClick: () => {
+      setView("forgot");
+      setErr("");
+    },
+    style: {
+      color: "#2e7d32",
+      fontSize: 13,
+      cursor: "pointer",
+      textDecoration: "underline"
+    }
+  }, "Zapomnia\u0142e\u015B has\u0142a?")));
+}
+function ResetPassword({
+  token,
+  onDone,
+  settings
+}) {
+  const [p1, setP1] = useState("");
+  const [p2, setP2] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const submit = async () => {
+    if (!p1 || p1.length < 6) {
+      setErr("Hasło musi mieć co najmniej 6 znaków.");
+      return;
+    }
+    if (p1 !== p2) {
+      setErr("Hasła nie są takie same.");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      await updatePassword(token, p1);
+      setDone(true);
+      setBusy(false);
+    } catch (ex) {
+      setErr(String(ex.message || ex));
+      setBusy(false);
+    }
+  };
+  if (done) {
+    return /*#__PURE__*/React.createElement(AuthShell, {
+      settings: settings
+    }, /*#__PURE__*/React.createElement("div", {
+      style: okBox
+    }, /*#__PURE__*/React.createElement("b", null, "Has\u0142o zmienione."), /*#__PURE__*/React.createElement("br", null), "Mo\u017Cesz si\u0119 teraz zalogowa\u0107 nowym has\u0142em."), /*#__PURE__*/React.createElement("button", {
+      onClick: onDone,
+      style: primaryBtn(false)
+    }, "Przejd\u017A do logowania"));
+  }
+  return /*#__PURE__*/React.createElement(AuthShell, {
+    settings: settings
+  }, /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: "#6b7a72",
+      fontSize: 13,
+      textAlign: "center",
+      marginBottom: 18
+    }
+  }, "Ustaw nowe has\u0142o"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 13
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: labelStyle
+  }, "Nowe has\u0142o"), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    value: p1,
+    onChange: e => setP1(e.target.value),
+    style: inputStyle,
+    autoFocus: true
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: labelStyle
+  }, "Powt\xF3rz nowe has\u0142o"), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    value: p2,
+    onChange: e => setP2(e.target.value),
+    onKeyDown: e => e.key === "Enter" && submit(),
+    style: inputStyle
+  })), err && /*#__PURE__*/React.createElement("div", {
+    style: errBox
   }, err), /*#__PURE__*/React.createElement("button", {
     onClick: submit,
     disabled: busy,
-    style: {
-      width: "100%",
-      background: busy ? "#9bbf9d" : "#2e7d32",
-      color: "#fff",
-      border: 0,
-      padding: "12px",
-      borderRadius: 9,
-      fontSize: 15,
-      fontWeight: 600,
-      cursor: busy ? "default" : "pointer"
-    }
-  }, busy ? "Logowanie…" : "Zaloguj się")));
+    style: primaryBtn(busy)
+  }, busy ? "Zapisywanie…" : "Zapisz nowe hasło"));
 }
 function App() {
   const [tab, setTab] = useState("dashboard");
@@ -985,6 +1222,7 @@ function App() {
   const [ok, setOk] = useState(null);
   const [authed, setAuthed] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [recovery, setRecovery] = useState(null);
   const [settings, setSettings] = useState({});
   const [equipment, setEquipment] = useState([]);
   const [clients, setClients] = useState([]);
@@ -999,9 +1237,7 @@ function App() {
     setOk(m);
     setTimeout(() => setOk(null), 3000);
   };
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    setErr(null);
+  const refresh = useCallback(async () => {
     try {
       const [s, e, c, r, a, id] = await Promise.all([sbGet("settings", "id=eq.1"), sbGet("equipment", "order=category,name"), sbGet("clients", "order=created_at.desc"), sbGet("reservations", "order=start_date.desc"), sbGet("reservation_addons"), sbGet("ideas", "order=created_at.desc")]);
       setSettings(s[0] || {});
@@ -1010,14 +1246,12 @@ function App() {
       setReservations(r);
       setAddons(a);
       setIdeas(id);
-      // katalog dodatków — może jeszcze nie istnieć w bazie
       try {
         const cat = await sbGet("addon_catalog", "order=sort_order,name");
         setAddonCatalog(cat);
       } catch (_) {
         setAddonCatalog([]);
       }
-      // oferty — też mogą jeszcze nie istnieć
       try {
         const [of, oa] = await Promise.all([sbGet("offers", "order=created_at.desc"), sbGet("offer_addons")]);
         setOffers(of);
@@ -1026,7 +1260,6 @@ function App() {
         setOffers([]);
         setOfferAddons([]);
       }
-      // inicjatywy — mogą jeszcze nie istnieć
       try {
         const ini = await sbGet("initiatives", "order=created_at.desc");
         setInitiatives(ini);
@@ -1036,11 +1269,25 @@ function App() {
     } catch (ex) {
       setErr(String(ex.message || ex));
     }
-    setLoading(false);
   }, []);
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    await refresh();
+    setLoading(false);
+  }, [refresh]);
   // sprawdzenie sesji przy starcie
   useEffect(() => {
     (async () => {
+      const rec = parseRecoveryHash();
+      if (rec) {
+        setRecovery(rec);
+        try {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        } catch (_) {}
+        setAuthChecked(true);
+        return;
+      }
       loadSession();
       if (authSession && authSession.refresh_token) {
         try {
@@ -1111,6 +1358,11 @@ function App() {
       fontSize: 18
     }
   }, "Sprawdzanie sesji\u2026");
+  if (recovery) return /*#__PURE__*/React.createElement(ResetPassword, {
+    token: recovery.token,
+    settings: settings,
+    onDone: () => setRecovery(null)
+  });
   if (!authed) return /*#__PURE__*/React.createElement(Login, {
     onSuccess: () => setAuthed(true),
     settings: settings
@@ -1201,16 +1453,18 @@ function App() {
     }
   }, settings.company_name || "GardenSpa"), /*#__PURE__*/React.createElement("span", null)), err && /*#__PURE__*/React.createElement("div", {
     className: "banner err no-print"
-  }, /*#__PURE__*/React.createElement("span", null, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Nie uda\u0142o si\u0119 po\u0142\u0105czy\u0107 z baz\u0105."), /*#__PURE__*/React.createElement("br", null), "W oknie podgl\u0105du Claude po\u0142\u0105czenie z Supabase bywa blokowane przez zabezpieczenia przegl\u0105darki \u2014 to normalne. Po opublikowaniu aplikacji (Vercel) zadzia\u0142a w pe\u0142ni.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-    className: "muted",
+  }, /*#__PURE__*/React.createElement("span", null, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, "Co\u015B posz\u0142o nie tak."), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 12
+      fontSize: 13
     }
-  }, "Szczeg\xF3\u0142y: ", err.slice(0, 160)), /*#__PURE__*/React.createElement("div", {
+  }, err), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 8
     }
   }, /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => setErr(null)
+  }, "Zamknij"), " ", /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: loadAll
   }, "Spr\xF3buj ponownie")))), ok && /*#__PURE__*/React.createElement("div", {
@@ -1234,7 +1488,7 @@ function App() {
     equipment
   }), !loading && tab === "initiatives" && /*#__PURE__*/React.createElement(Initiatives, {
     initiatives,
-    reload: loadAll,
+    reload: refresh,
     flash,
     setErr
   }), !loading && tab === "equipment" && /*#__PURE__*/React.createElement(Equipment, {
@@ -1242,13 +1496,13 @@ function App() {
     settings,
     reservations,
     addons,
-    reload: loadAll,
+    reload: refresh,
     flash,
     setErr
   }), !loading && tab === "clients" && /*#__PURE__*/React.createElement(Clients, {
     clients,
     reservations,
-    reload: loadAll,
+    reload: refresh,
     flash,
     setErr,
     equipName
@@ -1259,7 +1513,7 @@ function App() {
     addons,
     addonCatalog,
     settings,
-    reload: loadAll,
+    reload: refresh,
     flash,
     setErr,
     clientName,
@@ -1276,26 +1530,26 @@ function App() {
     equipment,
     addonCatalog,
     settings,
-    reload: loadAll,
+    reload: refresh,
     flash,
     setErr,
     clientName,
     equipName
   }), !loading && tab === "catalog" && /*#__PURE__*/React.createElement(AddonCatalog, {
     addonCatalog,
-    reload: loadAll,
+    reload: refresh,
     flash,
     setErr
   }), !loading && tab === "ideas" && /*#__PURE__*/React.createElement(Ideas, {
     ideas,
     clients,
-    reload: loadAll,
+    reload: refresh,
     flash,
     setErr,
     clientName
   }), !loading && tab === "settings" && /*#__PURE__*/React.createElement(Settings, {
     settings,
-    reload: loadAll,
+    reload: refresh,
     flash,
     setErr
   })));
@@ -1808,7 +2062,10 @@ function Initiatives({
     });
     setEditing(i ? i.id : "new");
   };
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       const body = {
         name: f.name,
@@ -1827,6 +2084,7 @@ function Initiatives({
       flash("Zapisano inicjatywę.");
       reload();
     } catch (ex) {
+      setSaving(false);
       setErr(String(ex.message || ex));
     }
   };
@@ -2048,8 +2306,9 @@ function Initiatives({
     onClick: () => setEditing(null)
   }, "Anuluj"), /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
-    onClick: save
-  }, "Zapisz inicjatyw\u0119"))), detail && /*#__PURE__*/React.createElement(Modal, {
+    onClick: save,
+    disabled: saving
+  }, saving ? "Zapisywanie…" : "Zapisz inicjatywę"))), detail && /*#__PURE__*/React.createElement(Modal, {
     wide: true,
     title: detail.name + " — analiza rentowności",
     onClose: () => setDetail(null)
@@ -2640,6 +2899,7 @@ function Equipment({
     rate_hour: 0,
     rate_day: 0,
     rate_weekend: 0,
+    first_day_rate: 0,
     deposit: 0,
     status: "available",
     service_note: "",
@@ -2667,7 +2927,10 @@ function Equipment({
     rd.onload = () => set("photo_url", rd.result);
     rd.readAsDataURL(file);
   };
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       const body = {
         category: f.category,
@@ -2677,6 +2940,7 @@ function Equipment({
         rate_hour: +f.rate_hour || 0,
         rate_day: +f.rate_day || 0,
         rate_weekend: +f.rate_weekend || 0,
+        first_day_rate: +f.first_day_rate || 0,
         deposit: +f.deposit || 0,
         status: f.status,
         service_note: f.service_note,
@@ -2688,6 +2952,7 @@ function Equipment({
       flash("Zapisano sprzęt.");
       reload();
     } catch (ex) {
+      setSaving(false);
       setErr(String(ex.message || ex));
     }
   };
@@ -2778,7 +3043,7 @@ function Equipment({
       style: {
         fontSize: 13
       }
-    }, "Doba: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(e.rate_day)), " \xB7 Weekend: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(e.rate_weekend))), /*#__PURE__*/React.createElement("div", {
+    }, "Doba: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(e.rate_day)), " \xB7 Weekend: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(e.rate_weekend)), +e.first_day_rate > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 I doba: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(e.first_day_rate)))), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 12.5
       },
@@ -2874,6 +3139,13 @@ function Equipment({
     type: "number",
     value: f.rate_weekend,
     onChange: e => set("rate_weekend", e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Cena za pierwsz\u0105 dob\u0119 (opcjonalne)"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: f.first_day_rate || 0,
+    onChange: e => set("first_day_rate", e.target.value),
+    placeholder: "0 = bez specjalnej ceny"
   }))), /*#__PURE__*/React.createElement("div", {
     className: "row2"
   }, /*#__PURE__*/React.createElement(Field, {
@@ -2921,8 +3193,9 @@ function Equipment({
     onClick: () => setEditing(null)
   }, "Anuluj"), /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
-    onClick: save
-  }, "Zapisz"))));
+    onClick: save,
+    disabled: saving
+  }, saving ? "Zapisywanie…" : "Zapisz"))));
 }
 
 /* ============ KLIENCI ============ */
@@ -2960,7 +3233,10 @@ function Clients({
     });
     setEditing(c ? c.id : "new");
   };
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       const body = {
         type: f.type,
@@ -2978,6 +3254,7 @@ function Clients({
       flash("Zapisano klienta.");
       reload();
     } catch (ex) {
+      setSaving(false);
       setErr(String(ex.message || ex));
     }
   };
@@ -3103,8 +3380,9 @@ function Clients({
     onClick: () => setEditing(null)
   }, "Anuluj"), /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
-    onClick: save
-  }, "Zapisz"))), detail && /*#__PURE__*/React.createElement(Modal, {
+    onClick: save,
+    disabled: saving
+  }, saving ? "Zapisywanie…" : "Zapisz"))), detail && /*#__PURE__*/React.createElement(Modal, {
     title: "Historia: " + detail.name,
     onClose: () => setDetail(null)
   }, /*#__PURE__*/React.createElement("p", {
@@ -3174,6 +3452,7 @@ function Reservations({
     notes: "",
     deposit_amount: 0,
     cost: 0,
+    rental_override: "",
     _addons: []
   };
   const [f, setF] = useState(blank);
@@ -3183,11 +3462,26 @@ function Reservations({
   }));
   const eq = equipment.find(e => e.id === f.equipment_id);
   const calc = useMemo(() => {
-    let rate = 0;
+    let rate = 0,
+      autoRental = 0;
     if (eq) {
-      rate = f.rate_mode === "hour" ? +eq.rate_hour : f.rate_mode === "weekend" ? +eq.rate_weekend : +eq.rate_day;
+      if (f.rate_mode === "hour") {
+        rate = +eq.rate_hour;
+        autoRental = rate * (+f.rate_qty || 0);
+      } else if (f.rate_mode === "weekend") {
+        rate = +eq.rate_weekend;
+        autoRental = rate * (+f.rate_qty || 0);
+      } else {
+        // day mode — uwzględnia cenę za pierwszą dobę, jeśli ustawiona
+        rate = +eq.rate_day;
+        const qty = +f.rate_qty || 0,
+          first = +eq.first_day_rate || 0;
+        autoRental = first > 0 ? qty >= 1 ? first + Math.max(0, qty - 1) * rate : 0 : rate * qty;
+      }
     }
-    const rental = rate * (+f.rate_qty || 0);
+    const overrideVal = f.rental_override === "" || f.rental_override == null ? null : +f.rental_override;
+    const rental = overrideVal != null && !isNaN(overrideVal) ? overrideVal : autoRental;
+    const isCustom = overrideVal != null && !isNaN(overrideVal) && Math.abs(overrideVal - autoRental) > 0.5;
     const freeKm = +settings.free_km || 15,
       kmRate = +settings.km_rate || 0;
     const cat = eq ? eq.category : "";
@@ -3200,7 +3494,9 @@ function Reservations({
     const margin = revenue - cost;
     return {
       rate,
+      autoRental,
       rental,
+      isCustom,
       transport,
       billKm,
       addonsSum,
@@ -3227,7 +3523,8 @@ function Reservations({
         rate_mode: r.rate_mode || "day",
         rate_qty: r.rate_qty || 1,
         _addons: ra,
-        deposit_amount: r.deposit_amount || (eq ? eq.deposit : 0)
+        deposit_amount: r.deposit_amount || (eq ? eq.deposit : 0),
+        rental_override: r.rental_cost != null ? String(r.rental_cost) : ""
       });
       setEditing(r.id);
     } else {
@@ -3282,8 +3579,14 @@ function Reservations({
       e = new Date(f.end_date);
     return reservations.find(r => r.id !== editing && r.equipment_id === f.equipment_id && !["settled", "returned"].includes(r.status) && r.start_date && r.end_date && new Date(r.start_date) < e && new Date(r.end_date) > s);
   }, [f.equipment_id, f.start_date, f.end_date, reservations, editing]);
+  const [saving, setSaving] = useState(false);
   const save = async () => {
-    if (conflict && !confirm("Uwaga: termin nachodzi na inną rezerwację tego sprzętu. Zapisać mimo to?")) return;
+    if (saving) return;
+    setSaving(true);
+    if (conflict && !confirm("Uwaga: termin nachodzi na inną rezerwację tego sprzętu. Zapisać mimo to?")) {
+      setSaving(false);
+      return;
+    }
     try {
       const body = {
         equipment_id: f.equipment_id || null,
@@ -3335,6 +3638,7 @@ function Reservations({
       flash("Zapisano rezerwację.");
       reload();
     } catch (ex) {
+      setSaving(false);
       setErr(String(ex.message || ex));
     }
   };
@@ -3553,20 +3857,6 @@ function Reservations({
     value: f.distance_km,
     onChange: e => set("distance_km", e.target.value)
   })), /*#__PURE__*/React.createElement(Field, {
-    label: "Transport \u2014 dostawa (data/godz.)"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "datetime-local",
-    value: f.delivery_time,
-    onChange: e => set("delivery_time", e.target.value)
-  })), /*#__PURE__*/React.createElement(Field, {
-    label: "Odbi\xF3r (data/godz.)"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "datetime-local",
-    value: f.pickup_time,
-    onChange: e => set("pickup_time", e.target.value)
-  }))), /*#__PURE__*/React.createElement("div", {
-    className: "row2"
-  }, /*#__PURE__*/React.createElement(Field, {
     label: "Adres dostawy"
   }, /*#__PURE__*/React.createElement("input", {
     value: f.delivery_address || "",
@@ -3633,7 +3923,37 @@ function Reservations({
     className: "calc-box"
   }, /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
-  }, /*#__PURE__*/React.createElement("span", null, "Wynajem (", f.rate_qty, "\xD7 ", f.rate_mode === "hour" ? "godz." : f.rate_mode === "weekend" ? "weekend" : "doba", ")"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.rental))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Wynajem (", f.rate_qty, "\xD7 ", f.rate_mode === "hour" ? "godz." : f.rate_mode === "weekend" ? "weekend" : "doba", ")", calc.isCustom && /*#__PURE__*/React.createElement("small", {
+    style: {
+      color: "#1b5e20",
+      fontWeight: 600,
+      marginLeft: 6
+    }
+  }, "\u270F\uFE0F indywidualna")), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: f.rental_override,
+    onChange: e => set("rental_override", e.target.value),
+    placeholder: Math.round(calc.autoRental),
+    style: {
+      width: 90,
+      padding: "4px 6px",
+      border: "1px solid #e3e0d6",
+      borderRadius: 6,
+      fontSize: 13.5,
+      textAlign: "right"
+    },
+    title: `Auto: ${fmtPLN(calc.autoRental)}. Zostaw puste, by użyć ceny auto. Wpisz własną, żeby ją zmienić dla tego klienta.`
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13
+    }
+  }, "z\u0142"))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
   }, /*#__PURE__*/React.createElement("span", null, "Transport (", calc.billKm, " km p\u0142atne)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.transport))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
@@ -3668,45 +3988,75 @@ function Reservations({
     onClick: () => setEditing(null)
   }, "Anuluj"), /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
-    onClick: save
-  }, "Zapisz rezerwacj\u0119"))), sms && /*#__PURE__*/React.createElement(Modal, {
-    title: "SMS \u2014 kalkulacja dla klienta",
-    onClose: () => setSms(null)
-  }, /*#__PURE__*/React.createElement("p", {
-    className: "muted",
-    style: {
-      fontSize: 13,
-      marginBottom: 8
-    }
-  }, "Do: ", clientName(sms.r.client_id), " \xB7 ", (clients.find(c => c.id === sms.r.client_id) || {}).phone || "brak numeru"), /*#__PURE__*/React.createElement("textarea", {
-    style: {
-      minHeight: 170
-    },
-    value: sms.text,
-    onChange: e => setSms({
-      ...sms,
-      text: e.target.value
-    })
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "banner ok",
-    style: {
-      marginTop: 10
-    }
-  }, /*#__PURE__*/React.createElement("span", null, "\u2139\uFE0F"), /*#__PURE__*/React.createElement("div", null, "Tryb symulacji \u2014 po pod\u0142\u0105czeniu bramki SMS (SMSAPI/Twilio) w Ustawieniach wiadomo\u015B\u0107 p\xF3jdzie naprawd\u0119.")), /*#__PURE__*/React.createElement("div", {
-    className: "modal-actions"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "btn ghost",
-    onClick: () => {
-      navigator.clipboard && navigator.clipboard.writeText(sms.text);
-      flash("Skopiowano treść SMS.");
-    }
-  }, "Kopiuj tre\u015B\u0107"), /*#__PURE__*/React.createElement("button", {
-    className: "btn primary",
-    onClick: () => {
+    onClick: save,
+    disabled: saving
+  }, saving ? "Zapisywanie…" : "Zapisz rezerwację"))), sms && (() => {
+    const cli = clients.find(c => c.id === sms.r.client_id) || {};
+    const smsUrl = cli.phone ? `sms:${cli.phone.replace(/\s/g, "")}?body=${encodeURIComponent(sms.text)}` : null;
+    const waUrl = cli.phone ? `https://wa.me/${waPhone(cli.phone)}?text=${encodeURIComponent(sms.text)}` : null;
+    const mailUrl = cli.email ? `mailto:${cli.email}?subject=${encodeURIComponent("Kalkulacja — " + equipName(sms.r.equipment_id))}&body=${encodeURIComponent(sms.text)}` : null;
+    const open = url => {
+      window.open(url, "_blank");
       setSms(null);
-      flash("SMS wysłany (symulacja).");
-    }
-  }, "Wy\u015Blij (symulacja)"))), printR && /*#__PURE__*/React.createElement(PrintContract, {
+      flash("Wiadomość gotowa w aplikacji — potwierdź wysyłkę u siebie.");
+    };
+    return /*#__PURE__*/React.createElement(Modal, {
+      title: "Wy\u015Blij kalkulacj\u0119 klientowi",
+      onClose: () => setSms(null)
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "muted",
+      style: {
+        fontSize: 13,
+        marginBottom: 8
+      }
+    }, "Do: ", /*#__PURE__*/React.createElement("b", null, clientName(sms.r.client_id)), cli.phone ? /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 \uD83D\uDCDE ", cli.phone) : /*#__PURE__*/React.createElement(React.Fragment, null), cli.email ? /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 \uD83D\uDCE7 ", cli.email) : /*#__PURE__*/React.createElement(React.Fragment, null), !cli.phone && !cli.email && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#b3261e"
+      }
+    }, " \u2014 klient nie ma telefonu ani e-maila")), /*#__PURE__*/React.createElement(Field, {
+      label: "Tre\u015B\u0107 wiadomo\u015Bci (mo\u017Cesz edytowa\u0107 przed wys\u0142aniem)"
+    }, /*#__PURE__*/React.createElement("textarea", {
+      style: {
+        minHeight: 180
+      },
+      value: sms.text,
+      onChange: e => setSms({
+        ...sms,
+        text: e.target.value
+      })
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        marginTop: 8
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn primary",
+      disabled: !smsUrl,
+      onClick: () => smsUrl && open(smsUrl)
+    }, "\uD83D\uDCAC SMS"), /*#__PURE__*/React.createElement("button", {
+      className: "btn primary",
+      disabled: !waUrl,
+      onClick: () => waUrl && open(waUrl)
+    }, "\uD83D\uDFE2 WhatsApp"), /*#__PURE__*/React.createElement("button", {
+      className: "btn primary",
+      disabled: !mailUrl,
+      onClick: () => mailUrl && open(mailUrl)
+    }, "\uD83D\uDCE7 E-mail"), /*#__PURE__*/React.createElement("button", {
+      className: "btn ghost",
+      onClick: () => {
+        navigator.clipboard && navigator.clipboard.writeText(sms.text);
+        flash("Skopiowano treść.");
+      }
+    }, "\uD83D\uDCCB Kopiuj")), /*#__PURE__*/React.createElement("p", {
+      className: "muted",
+      style: {
+        fontSize: 12,
+        marginTop: 10
+      }
+    }, "Otworzy si\u0119 Twoja aplikacja SMS / WhatsApp / poczty z gotow\u0105 tre\u015Bci\u0105. ", /*#__PURE__*/React.createElement("b", null, "Wysy\u0142k\u0119 potwierdzasz tam u siebie"), " (tre\u015B\u0107 jest tylko wczytana, nic jeszcze nie wys\u0142ane)."));
+  })(), printR && /*#__PURE__*/React.createElement(PrintContract, {
     r: printR,
     settings: settings,
     addons: addons.filter(a => a.reservation_id === printR.id),
@@ -4236,7 +4586,10 @@ function AddonCatalog({
     });
     setEditing(item ? item.id : "new");
   };
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       const body = {
         name: f.name,
@@ -4250,6 +4603,7 @@ function AddonCatalog({
       flash("Zapisano pozycję.");
       reload();
     } catch (ex) {
+      setSaving(false);
       setErr(String(ex.message || ex));
     }
   };
@@ -4362,8 +4716,9 @@ function AddonCatalog({
     onClick: () => setEditing(null)
   }, "Anuluj"), /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
-    onClick: save
-  }, "Zapisz"))));
+    onClick: save,
+    disabled: saving
+  }, saving ? "Zapisywanie…" : "Zapisz"))));
 }
 
 /* ============ OFERTY (wyceny dla klienta) ============ */
@@ -4435,6 +4790,7 @@ function Offers({
     operator: "",
     delivery_address: "",
     notes: "",
+    rental_override: "",
     _addons: []
   };
   const [f, setF] = useState(blank);
@@ -4444,11 +4800,25 @@ function Offers({
   }));
   const eq = equipment.find(e => e.id === f.equipment_id);
   const calc = useMemo(() => {
-    let rate = 0;
+    let rate = 0,
+      autoRental = 0;
     if (eq) {
-      rate = f.rate_mode === "hour" ? +eq.rate_hour : f.rate_mode === "weekend" ? +eq.rate_weekend : +eq.rate_day;
+      if (f.rate_mode === "hour") {
+        rate = +eq.rate_hour;
+        autoRental = rate * (+f.rate_qty || 0);
+      } else if (f.rate_mode === "weekend") {
+        rate = +eq.rate_weekend;
+        autoRental = rate * (+f.rate_qty || 0);
+      } else {
+        rate = +eq.rate_day;
+        const qty = +f.rate_qty || 0,
+          first = +eq.first_day_rate || 0;
+        autoRental = first > 0 ? qty >= 1 ? first + Math.max(0, qty - 1) * rate : 0 : rate * qty;
+      }
     }
-    const rental = rate * (+f.rate_qty || 0);
+    const overrideVal = f.rental_override === "" || f.rental_override == null ? null : +f.rental_override;
+    const rental = overrideVal != null && !isNaN(overrideVal) ? overrideVal : autoRental;
+    const isCustom = overrideVal != null && !isNaN(overrideVal) && Math.abs(overrideVal - autoRental) > 0.5;
     const freeKm = +settings.free_km || 15,
       kmRate = +settings.km_rate || 0;
     const cat = eq ? eq.category : "";
@@ -4460,7 +4830,9 @@ function Offers({
     const cost = +f.cost || 0;
     const margin = revenue - cost;
     return {
+      autoRental,
       rental,
+      isCustom,
       transport,
       billKm,
       addonsSum,
@@ -4495,6 +4867,7 @@ function Offers({
         operator: o.operator || "",
         delivery_address: o.delivery_address || "",
         notes: o.notes || "",
+        rental_override: o.rental_cost != null ? String(o.rental_cost) : "",
         _addons: oa
       });
       setEditing(o.id);
@@ -4546,7 +4919,10 @@ function Offers({
     ...p,
     _addons: p._addons.filter((_, j) => j !== i)
   }));
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       const body = {
         client_id: f.client_id || null,
@@ -4587,6 +4963,7 @@ function Offers({
       flash("Zapisano ofertę.");
       reload();
     } catch (ex) {
+      setSaving(false);
       setErr(String(ex.message || ex));
     }
   };
@@ -4874,7 +5251,37 @@ function Offers({
     className: "calc-box"
   }, /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
-  }, /*#__PURE__*/React.createElement("span", null, "Wynajem (", f.rate_qty, "\xD7 ", f.rate_mode === "hour" ? "godz." : f.rate_mode === "weekend" ? "weekend" : "doba", ")"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.rental))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Wynajem (", f.rate_qty, "\xD7 ", f.rate_mode === "hour" ? "godz." : f.rate_mode === "weekend" ? "weekend" : "doba", ")", calc.isCustom && /*#__PURE__*/React.createElement("small", {
+    style: {
+      color: "#1b5e20",
+      fontWeight: 600,
+      marginLeft: 6
+    }
+  }, "\u270F\uFE0F indywidualna")), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: f.rental_override,
+    onChange: e => set("rental_override", e.target.value),
+    placeholder: Math.round(calc.autoRental),
+    style: {
+      width: 90,
+      padding: "4px 6px",
+      border: "1px solid #e3e0d6",
+      borderRadius: 6,
+      fontSize: 13.5,
+      textAlign: "right"
+    },
+    title: `Auto: ${fmtPLN(calc.autoRental)}. Zostaw puste, by użyć ceny auto. Wpisz własną, żeby ją zmienić dla tego klienta.`
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13
+    }
+  }, "z\u0142"))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
   }, /*#__PURE__*/React.createElement("span", null, "Transport (", calc.billKm, " km p\u0142atne)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.transport))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
@@ -4909,8 +5316,9 @@ function Offers({
     onClick: () => setEditing(null)
   }, "Anuluj"), /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
-    onClick: save
-  }, "Zapisz ofert\u0119"))), share && (() => {
+    onClick: save,
+    disabled: saving
+  }, saving ? "Zapisywanie…" : "Zapisz ofertę"))), share && (() => {
     const cli = clients.find(c => c.id === share.o.client_id);
     const mail = cli && cli.email ? `mailto:${cli.email}?subject=${encodeURIComponent(share.subject)}&body=${encodeURIComponent(share.text)}` : null;
     const sms = cli && cli.phone ? `sms:${cli.phone.replace(/\s/g, "")}?body=${encodeURIComponent(share.text)}` : null;
@@ -5228,7 +5636,10 @@ function Ideas({
     done: ["Wdrożone", "b-green"],
     rejected: ["Odrzucone", "b-grey"]
   };
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     if (!f.text) return;
     try {
       await sbInsert("ideas", {
@@ -5245,6 +5656,7 @@ function Ideas({
       flash("Dodano pomysł.");
       reload();
     } catch (ex) {
+      setSaving(false);
       setErr(String(ex.message || ex));
     }
   };
@@ -5372,8 +5784,9 @@ function Ideas({
     onClick: () => setAdding(false)
   }, "Anuluj"), /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
-    onClick: save
-  }, "Zapisz"))));
+    onClick: save,
+    disabled: saving
+  }, saving ? "Zapisywanie…" : "Zapisz"))));
 }
 
 /* ============ USTAWIENIA ============ */
@@ -5400,7 +5813,10 @@ function Settings({
     rd.onload = () => set("logo_url", rd.result);
     rd.readAsDataURL(file);
   };
+  const [saving, setSaving] = useState(false);
   const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       await sbUpdate("settings", "id", 1, {
         company_name: f.company_name,
@@ -5414,6 +5830,7 @@ function Settings({
       flash("Zapisano ustawienia.");
       reload();
     } catch (ex) {
+      setSaving(false);
       setErr(String(ex.message || ex));
     }
   };
@@ -5531,8 +5948,9 @@ function Settings({
     }
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
-    onClick: save
-  }, "Zapisz ustawienia")));
+    onClick: save,
+    disabled: saving
+  }, saving ? "Zapisywanie…" : "Zapisz ustawienia")));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));</script>
 </body>
