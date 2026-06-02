@@ -503,6 +503,13 @@ function currentUserFirstName() {
   const first = local.split(/[._+\-]/)[0];
   return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : "";
 }
+function socialFooter(settings) {
+  const link = (settings && settings.social_link || "").trim();
+  if (!link) return "";
+  // skróć: usuń https://www. i parametry po ? — żeby wyglądało zwięźle
+  const clean = link.replace(/^https?:\/\//, "").replace(/^www\./, "").split("?")[0];
+  return "\n🌿 " + clean;
+}
 function authHeaders() {
   const token = authSession && authSession.access_token ? authSession.access_token : SUPABASE_KEY;
   return {
@@ -3747,7 +3754,7 @@ function Reservations({
   const smsText = r => {
     const a = addons.filter(x => x.reservation_id === r.id);
     const aSum = a.reduce((s, x) => s + (+x.price || 0) * (+x.quantity || 1), 0);
-    return `Dzień dobry! Kalkulacja wynajmu: ${equipName(r.equipment_id)}, termin ${fmtDate(r.start_date)}–${fmtDate(r.end_date)}.\n` + `Wynajem: ${fmtPLN(r.rental_cost)}\nTransport: ${fmtPLN(r.transport_cost)}\n` + (aSum ? `Dodatki: ${fmtPLN(aSum)}\n` : ``) + `Kaucja (zwrotna): ${fmtPLN(r.deposit_amount)}\n` + `RAZEM: ${fmtPLN(r.total)}\nPozdrawiamy, ${settings.company_name || "GardenSpa"}${currentUserFirstName() ? " " + currentUserFirstName() : ""}`;
+    return `Dzień dobry! Kalkulacja wynajmu: ${equipName(r.equipment_id)}, termin ${fmtDate(r.start_date)}–${fmtDate(r.end_date)}.\n` + `Wynajem: ${fmtPLN(r.rental_cost)}\nTransport: ${fmtPLN(r.transport_cost)}\n` + (aSum ? `Dodatki: ${fmtPLN(aSum)}\n` : ``) + `Kaucja (zwrotna): ${fmtPLN(r.deposit_amount)}\n` + `RAZEM: ${fmtPLN(r.total)}\nPozdrawiamy, ${settings.company_name || "GardenSpa"}${currentUserFirstName() ? " " + currentUserFirstName() : ""}` + socialFooter(settings);
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "topbar"
@@ -5659,6 +5666,7 @@ function Offers({
     }
     const who = currentUserFirstName();
     s += `\nPozdrawiamy,\n${settings.company_name || "GardenSpa"}${who ? " " + who : ""}`;
+    s += socialFooter(settings);
     return s;
   };
   const offerSubject = o => `Oferta nr ${fmtOfferNo(o)} — ${settings.company_name || "GardenSpa"}`;
@@ -6510,7 +6518,8 @@ function Settings({
         km_rate: +f.km_rate || 0,
         sms_api_key: f.sms_api_key,
         contract_template: f.contract_template || "",
-        booking_deposit: +f.booking_deposit || 200
+        booking_deposit: +f.booking_deposit || 200,
+        social_link: f.social_link || ""
       });
       flash("Zapisano ustawienia.");
       reload();
@@ -6609,6 +6618,12 @@ function Settings({
     value: f.sms_api_key || "",
     onChange: e => set("sms_api_key", e.target.value),
     placeholder: "puste = tryb symulacji"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Link do social medi\xF3w (do\u0142\u0105czany do SMS-\xF3w i maili)"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: f.social_link || "",
+    onChange: e => set("social_link", e.target.value),
+    placeholder: "np. linktr.ee/GardenSpa_Wellness_"
   })), /*#__PURE__*/React.createElement("p", {
     className: "muted",
     style: {
