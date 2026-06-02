@@ -4,6 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>GardenSpa — Zarządzanie wynajmem</title>
+<meta name="theme-color" content="#2e7d32" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="GardenSpa" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSI5NiIgZmlsbD0iIzJlN2QzMiIvPgo8cGF0aCBkPSJNIDI1NiA3MCBRIDEyMCAyMDAsIDE4MCAzODAgUSAyNTYgNDQwLCAzMzIgMzgwIFEgMzkyIDIwMCwgMjU2IDcwIFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0gMjU2IDcwIFEgMjU2IDI1MCwgMjU2IDQyNSIgc3Ryb2tlPSIjMmU3ZDMyIiBzdHJva2Utd2lkdGg9IjEwIiBzdHJva2UtbGluZWNhcD0icm91bmQiIGZpbGw9Im5vbmUiLz4KPHBhdGggZD0iTSAyNTYgMTYwIFEgMjIwIDE3NSwgMTk1IDIxNSIgc3Ryb2tlPSIjMmU3ZDMyIiBzdHJva2Utd2lkdGg9IjciIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8cGF0aCBkPSJNIDI1NiAxNjAgUSAyOTIgMTc1LCAzMTcgMjE1IiBzdHJva2U9IiMyZTdkMzIiIHN0cm9rZS13aWR0aD0iNyIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CjxwYXRoIGQ9Ik0gMjU2IDI0MCBRIDIxNSAyNTUsIDE3NSAzMDUiIHN0cm9rZT0iIzJlN2QzMiIgc3Ryb2tlLXdpZHRoPSI3IiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHBhdGggZD0iTSAyNTYgMjQwIFEgMjk3IDI1NSwgMzM3IDMwNSIgc3Ryb2tlPSIjMmU3ZDMyIiBzdHJva2Utd2lkdGg9IjciIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8cGF0aCBkPSJNIDI1NiAzMjUgUSAyMjUgMzQ1LCAyMDAgMzg1IiBzdHJva2U9IiMyZTdkMzIiIHN0cm9rZS13aWR0aD0iNyIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CjxwYXRoIGQ9Ik0gMjU2IDMyNSBRIDI4NyAzNDUsIDMxMiAzODUiIHN0cm9rZT0iIzJlN2QzMiIgc3Ryb2tlLXdpZHRoPSI3IiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPC9zdmc+Cg==" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSI5NiIgZmlsbD0iIzJlN2QzMiIvPgo8cGF0aCBkPSJNIDI1NiA3MCBRIDEyMCAyMDAsIDE4MCAzODAgUSAyNTYgNDQwLCAzMzIgMzgwIFEgMzkyIDIwMCwgMjU2IDcwIFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0gMjU2IDcwIFEgMjU2IDI1MCwgMjU2IDQyNSIgc3Ryb2tlPSIjMmU3ZDMyIiBzdHJva2Utd2lkdGg9IjEwIiBzdHJva2UtbGluZWNhcD0icm91bmQiIGZpbGw9Im5vbmUiLz4KPHBhdGggZD0iTSAyNTYgMTYwIFEgMjIwIDE3NSwgMTk1IDIxNSIgc3Ryb2tlPSIjMmU3ZDMyIiBzdHJva2Utd2lkdGg9IjciIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8cGF0aCBkPSJNIDI1NiAxNjAgUSAyOTIgMTc1LCAzMTcgMjE1IiBzdHJva2U9IiMyZTdkMzIiIHN0cm9rZS13aWR0aD0iNyIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CjxwYXRoIGQ9Ik0gMjU2IDI0MCBRIDIxNSAyNTUsIDE3NSAzMDUiIHN0cm9rZT0iIzJlN2QzMiIgc3Ryb2tlLXdpZHRoPSI3IiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPHBhdGggZD0iTSAyNTYgMjQwIFEgMjk3IDI1NSwgMzM3IDMwNSIgc3Ryb2tlPSIjMmU3ZDMyIiBzdHJva2Utd2lkdGg9IjciIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8cGF0aCBkPSJNIDI1NiAzMjUgUSAyMjUgMzQ1LCAyMDAgMzg1IiBzdHJva2U9IiMyZTdkMzIiIHN0cm9rZS13aWR0aD0iNyIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CjxwYXRoIGQ9Ik0gMjU2IDMyNSBRIDI4NyAzNDUsIDMxMiAzODUiIHN0cm9rZT0iIzJlN2QzMiIgc3Ryb2tlLXdpZHRoPSI3IiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPC9zdmc+Cg==" />
+<link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoiR2FyZGVuU3BhIiwic2hvcnRfbmFtZSI6IkdhcmRlblNwYSIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsInRoZW1lX2NvbG9yIjoiIzJlN2QzMiIsImJhY2tncm91bmRfY29sb3IiOiIjZjZmNGVjIiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlp5QjRiV3h1Y3owaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNQzl6ZG1jaUlIWnBaWGRDYjNnOUlqQWdNQ0ExTVRJZ05URXlJajRLUEhKbFkzUWdkMmxrZEdnOUlqVXhNaUlnYUdWcFoyaDBQU0kxTVRJaUlISjRQU0k1TmlJZ1ptbHNiRDBpSXpKbE4yUXpNaUl2UGdvOGNHRjBhQ0JrUFNKTklESTFOaUEzTUNCUklERXlNQ0F5TURBc0lERTRNQ0F6T0RBZ1VTQXlOVFlnTkRRd0xDQXpNeklnTXpnd0lGRWdNemt5SURJd01Dd2dNalUySURjd0lGb2lJR1pwYkd3OUluZG9hWFJsSWk4K0NqeHdZWFJvSUdROUlrMGdNalUySURjd0lGRWdNalUySURJMU1Dd2dNalUySURReU5TSWdjM1J5YjJ0bFBTSWpNbVUzWkRNeUlpQnpkSEp2YTJVdGQybGtkR2c5SWpFd0lpQnpkSEp2YTJVdGJHbHVaV05oY0QwaWNtOTFibVFpSUdacGJHdzlJbTV2Ym1VaUx6NEtQSEJoZEdnZ1pEMGlUU0F5TlRZZ01UWXdJRkVnTWpJd0lERTNOU3dnTVRrMUlESXhOU0lnYzNSeWIydGxQU0lqTW1VM1pETXlJaUJ6ZEhKdmEyVXRkMmxrZEdnOUlqY2lJR1pwYkd3OUltNXZibVVpSUhOMGNtOXJaUzFzYVc1bFkyRndQU0p5YjNWdVpDSXZQZ284Y0dGMGFDQmtQU0pOSURJMU5pQXhOakFnVVNBeU9USWdNVGMxTENBek1UY2dNakUxSWlCemRISnZhMlU5SWlNeVpUZGtNeklpSUhOMGNtOXJaUzEzYVdSMGFEMGlOeUlnWm1sc2JEMGlibTl1WlNJZ2MzUnliMnRsTFd4cGJtVmpZWEE5SW5KdmRXNWtJaTgrQ2p4d1lYUm9JR1E5SWswZ01qVTJJREkwTUNCUklESXhOU0F5TlRVc0lERTNOU0F6TURVaUlITjBjbTlyWlQwaUl6SmxOMlF6TWlJZ2MzUnliMnRsTFhkcFpIUm9QU0kzSWlCbWFXeHNQU0p1YjI1bElpQnpkSEp2YTJVdGJHbHVaV05oY0QwaWNtOTFibVFpTHo0S1BIQmhkR2dnWkQwaVRTQXlOVFlnTWpRd0lGRWdNamszSURJMU5Td2dNek0zSURNd05TSWdjM1J5YjJ0bFBTSWpNbVUzWkRNeUlpQnpkSEp2YTJVdGQybGtkR2c5SWpjaUlHWnBiR3c5SW01dmJtVWlJSE4wY205clpTMXNhVzVsWTJGd1BTSnliM1Z1WkNJdlBnbzhjR0YwYUNCa1BTSk5JREkxTmlBek1qVWdVU0F5TWpVZ016UTFMQ0F5TURBZ016ZzFJaUJ6ZEhKdmEyVTlJaU15WlRka016SWlJSE4wY205clpTMTNhV1IwYUQwaU55SWdabWxzYkQwaWJtOXVaU0lnYzNSeWIydGxMV3hwYm1WallYQTlJbkp2ZFc1a0lpOCtDanh3WVhSb0lHUTlJazBnTWpVMklETXlOU0JSSURJNE55QXpORFVzSURNeE1pQXpPRFVpSUhOMGNtOXJaVDBpSXpKbE4yUXpNaUlnYzNSeWIydGxMWGRwWkhSb1BTSTNJaUJtYVd4c1BTSnViMjVsSWlCemRISnZhMlV0YkdsdVpXTmhjRDBpY205MWJtUWlMejRLUEM5emRtYytDZz09Iiwic2l6ZXMiOiJhbnkiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCIsInB1cnBvc2UiOiJhbnkifV19Cg==" />
 <script>
 /**
  * @license React
@@ -674,23 +682,23 @@ const isToday = s => {
 };
 const STATUS = {
   inquiry: {
-    l: "Zapytanie",
+    l: "Wstępna rezerwacja",
     c: "b-grey"
   },
   confirmed: {
-    l: "Potwierdzona",
+    l: "Zarezerwowano",
     c: "b-blue"
   },
   issued: {
-    l: "Wydana",
+    l: "Wydano",
     c: "b-amber"
   },
   returned: {
-    l: "Zwrócona",
+    l: "Zwrócono",
     c: "b-green"
   },
   settled: {
-    l: "Rozliczona",
+    l: "Rozliczono",
     c: "b-green"
   }
 };
@@ -1508,6 +1516,7 @@ function App() {
     equipName
   }), !loading && tab === "reservations" && /*#__PURE__*/React.createElement(Reservations, {
     reservations,
+    offers,
     equipment,
     clients,
     addons,
@@ -1520,6 +1529,7 @@ function App() {
     equipName
   }), !loading && tab === "calendar" && /*#__PURE__*/React.createElement(CalendarView, {
     reservations,
+    offers,
     equipment,
     clientName,
     equipName
@@ -3418,6 +3428,7 @@ function Clients({
 /* ============ REZERWACJE ============ */
 function Reservations({
   reservations,
+  offers,
   equipment,
   clients,
   addons,
@@ -3577,13 +3588,23 @@ function Reservations({
     if (!f.equipment_id || !f.start_date || !f.end_date) return null;
     const s = new Date(f.start_date),
       e = new Date(f.end_date);
-    return reservations.find(r => r.id !== editing && r.equipment_id === f.equipment_id && !["settled", "returned"].includes(r.status) && r.start_date && r.end_date && new Date(r.start_date) < e && new Date(r.end_date) > s);
-  }, [f.equipment_id, f.start_date, f.end_date, reservations, editing]);
+    const fromRes = reservations.find(r => r.id !== editing && r.equipment_id === f.equipment_id && !["settled", "returned"].includes(r.status) && r.start_date && r.end_date && new Date(r.start_date) < e && new Date(r.end_date) > s);
+    if (fromRes) return {
+      ...fromRes,
+      _kind: "res"
+    };
+    const fromOff = (offers || []).find(o => o.equipment_id === f.equipment_id && o.status === "sent" && o.start_date && o.end_date && new Date(o.start_date) < e && new Date(o.end_date) > s);
+    if (fromOff) return {
+      ...fromOff,
+      _kind: "offer"
+    };
+    return null;
+  }, [f.equipment_id, f.start_date, f.end_date, reservations, offers, editing]);
   const [saving, setSaving] = useState(false);
   const save = async () => {
     if (saving) return;
     setSaving(true);
-    if (conflict && !confirm("Uwaga: termin nachodzi na inną rezerwację tego sprzętu. Zapisać mimo to?")) {
+    if (conflict && !confirm(conflict._kind === "offer" ? "Uwaga: na ten sprzęt jest już wysłana oferta w nachodzącym terminie. Zapisać mimo to?" : "Uwaga: termin nachodzi na inną rezerwację tego sprzętu. Zapisać mimo to?")) {
       setSaving(false);
       return;
     }
@@ -3806,7 +3827,7 @@ function Reservations({
     style: {
       marginBottom: 12
     }
-  }, /*#__PURE__*/React.createElement("span", null, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("div", null, "Ten sprz\u0119t ma ju\u017C rezerwacj\u0119 w nachodz\u0105cym terminie (", fmtDate(conflict.start_date), "\u2013", fmtDate(conflict.end_date), ").")), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("div", null, "Ten sprz\u0119t jest ju\u017C ", conflict._kind === "offer" ? "w wysłanej ofercie" : "w innej rezerwacji", " na nachodz\u0105cy termin (", fmtDate(conflict.start_date), "\u2013", fmtDate(conflict.end_date), ").")), /*#__PURE__*/React.createElement("div", {
     className: "row3"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Tryb stawki"
@@ -4283,6 +4304,7 @@ function PrintContract({
 /* ============ KALENDARZ MIESIĘCZNY ============ */
 function CalendarView({
   reservations,
+  offers,
   equipment,
   clientName,
   equipName
@@ -4326,11 +4348,30 @@ function CalendarView({
   }
   const today = new Date();
   const isTodayCell = d => d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
-  const dayBucket = date => reservations.filter(r => {
+
+  // łączymy rezerwacje + oferty wysłane (wstępnie zajęte sloty)
+  const events = useMemo(() => {
+    const list = reservations.map(r => ({
+      ...r,
+      _kind: "res"
+    }));
+    (offers || []).forEach(o => {
+      // tylko wysłane oferty pokazujemy jako "wstępnie zajęte"
+      // (robocze nie blokują, zaakceptowane już są rezerwacją)
+      if (o.status === "sent" && o.start_date && o.end_date && o.equipment_id) {
+        list.push({
+          ...o,
+          _kind: "offer"
+        });
+      }
+    });
+    return list;
+  }, [reservations, offers]);
+  const dayBucket = date => events.filter(r => {
     if (!r.start_date || !r.end_date) return false;
+    const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const s = new Date(r.start_date),
       e = new Date(r.end_date);
-    const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const sd = new Date(s.getFullYear(), s.getMonth(), s.getDate());
     const ed = new Date(e.getFullYear(), e.getMonth(), e.getDate());
     return sd <= day && day <= ed;
@@ -4345,6 +4386,57 @@ function CalendarView({
       podnosnik: "#1565c0",
       ogrod: "#6b8e23"
     }[e.category] || "#666";
+  };
+
+  // styl kafelka eventu w zależności od statusu
+  const eventStyle = ev => {
+    const c = colorFor(ev.equipment_id);
+    if (ev._kind === "offer") {
+      // oferta wysłana — wstępnie zajęty slot
+      return {
+        background: "#fff",
+        color: c,
+        border: `1.5px dashed ${c}`,
+        prefix: "📤",
+        suffix: ""
+      };
+    }
+    if (ev.status === "inquiry") return {
+      background: "#fff",
+      color: c,
+      border: `1.5px dashed ${c}`,
+      prefix: "❓",
+      suffix: ""
+    };
+    if (ev.status === "confirmed") return {
+      background: c,
+      color: "#fff",
+      border: `1.5px solid ${c}`,
+      prefix: "✓",
+      suffix: ""
+    };
+    if (ev.status === "issued") return {
+      background: c,
+      color: "#fff",
+      border: `1.5px solid ${c}`,
+      prefix: "▸",
+      suffix: ""
+    };
+    if (ev.status === "returned" || ev.status === "settled") return {
+      background: c,
+      color: "#fff",
+      opacity: .4,
+      border: `1.5px solid ${c}`,
+      prefix: "↩",
+      suffix: ""
+    };
+    return {
+      background: c,
+      color: "#fff",
+      border: `1.5px solid ${c}`,
+      prefix: "",
+      suffix: ""
+    };
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "topbar"
@@ -4439,24 +4531,30 @@ function CalendarView({
         fontSize: 10,
         color: "#5a6b5d"
       }
-    }, "+", events.length - 3)), events.slice(0, 3).map(r => /*#__PURE__*/React.createElement("div", {
-      key: r.id,
-      onClick: () => setSel(r),
-      title: equipName(r.equipment_id) + " — " + clientName(r.client_id),
-      style: {
-        background: colorFor(r.equipment_id),
-        color: "#fff",
-        fontSize: 11,
-        padding: "2px 5px",
-        borderRadius: 3,
-        marginBottom: 2,
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        cursor: "pointer",
-        lineHeight: 1.3
-      }
-    }, equipName(r.equipment_id).split(" ")[0], " ", clientName(r.client_id).split(" ")[0])));
+    }, "+", events.length - 3)), events.slice(0, 3).map(r => {
+      const st = eventStyle(r);
+      return /*#__PURE__*/React.createElement("div", {
+        key: (r._kind || "res") + "-" + r.id,
+        onClick: () => setSel(r),
+        title: (r._kind === "offer" ? "Oferta wysłana: " : "") + equipName(r.equipment_id) + " — " + clientName(r.client_id),
+        style: {
+          background: st.background,
+          color: st.color,
+          border: st.border,
+          opacity: st.opacity || 1,
+          fontSize: 11,
+          padding: "1.5px 5px",
+          borderRadius: 4,
+          marginBottom: 2,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          cursor: "pointer",
+          lineHeight: 1.3,
+          fontWeight: 500
+        }
+      }, st.prefix, " ", equipName(r.equipment_id).split(" ")[0], " ", clientName(r.client_id).split(" ")[0]);
+    }));
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -4507,10 +4605,30 @@ function CalendarView({
       verticalAlign: "middle",
       marginRight: 5
     }
-  }), "Sprz\u0119t ogrodowy"))), sel && /*#__PURE__*/React.createElement(Modal, {
-    title: "Szczeg\xF3\u0142y rezerwacji",
+  }), "Sprz\u0119t ogrodowy")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 14,
+      flexWrap: "wrap",
+      justifyContent: "center",
+      marginTop: 8,
+      fontSize: 11.5,
+      color: "#5a6b5d",
+      borderTop: "1px solid #e3e0d6",
+      paddingTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCE4 oferta wys\u0142ana"), /*#__PURE__*/React.createElement("span", null, "\u2753 wst\u0119pna rezerwacja"), /*#__PURE__*/React.createElement("span", null, "\u2713 zarezerwowano"), /*#__PURE__*/React.createElement("span", null, "\u25B8 wydano"), /*#__PURE__*/React.createElement("span", null, "\u21A9 zwr\xF3cono / rozliczono"))), sel && /*#__PURE__*/React.createElement(Modal, {
+    title: sel._kind === "offer" ? "Szczegóły oferty (slot wstępnie zajęty)" : "Szczegóły rezerwacji",
     onClose: () => setSel(null)
-  }, /*#__PURE__*/React.createElement("p", {
+  }, sel._kind === "offer" && /*#__PURE__*/React.createElement("div", {
+    className: "banner ok",
+    style: {
+      marginBottom: 10,
+      background: "#fff7e6",
+      color: "#7a5a00",
+      borderColor: "#e3cc80"
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCE4"), /*#__PURE__*/React.createElement("div", null, "To jest ", /*#__PURE__*/React.createElement("b", null, "oferta wys\u0142ana do klienta"), " \u2014 termin jest wst\u0119pnie zaj\u0119ty, ale klient jeszcze nie potwierdzi\u0142. Zaakceptuj ofert\u0119 w \u201EOferty\" \u2192 \u201E\u2713 Akceptuj\", \u017Ceby zamieni\u0107 j\u0105 w rezerwacj\u0119.")), /*#__PURE__*/React.createElement("p", {
     style: {
       margin: "4px 0"
     }
@@ -4531,7 +4649,9 @@ function CalendarView({
     style: {
       margin: "4px 0"
     }
-  }, /*#__PURE__*/React.createElement("b", null, "Status:"), " ", /*#__PURE__*/React.createElement(Badge, {
+  }, /*#__PURE__*/React.createElement("b", null, "Status:"), " ", sel._kind === "offer" ? /*#__PURE__*/React.createElement("span", {
+    className: "badge b-blue"
+  }, "Oferta wys\u0142ana") : /*#__PURE__*/React.createElement(Badge, {
     status: sel.status
   })), /*#__PURE__*/React.createElement("p", {
     style: {
@@ -4724,11 +4844,11 @@ function AddonCatalog({
 /* ============ OFERTY (wyceny dla klienta) ============ */
 const OST = {
   draft: {
-    l: "Robocza",
+    l: "Nowa (robocza)",
     c: "b-grey"
   },
   sent: {
-    l: "Wysłana",
+    l: "Wysłana do klienta",
     c: "b-blue"
   },
   accepted: {
@@ -4978,7 +5098,7 @@ function Offers({
     }
   };
   const accept = async o => {
-    if (!confirm("Przekształcić ofertę w rezerwację (status: potwierdzona)?")) return;
+    if (!confirm("Przekształcić ofertę w rezerwację (status: zarezerwowano)?")) return;
     try {
       const rBody = {
         equipment_id: o.equipment_id || null,
@@ -5013,6 +5133,29 @@ function Offers({
         converted_reservation_id: rId
       });
       flash("Oferta zaakceptowana → utworzono rezerwację.");
+      reload();
+    } catch (ex) {
+      setErr(String(ex.message || ex));
+    }
+  };
+  const reject = async o => {
+    if (!confirm("Oznaczyć ofertę jako odrzuconą przez klienta?")) return;
+    try {
+      await sbUpdate("offers", "id", o.id, {
+        status: "rejected"
+      });
+      flash("Oferta oznaczona jako odrzucona.");
+      reload();
+    } catch (ex) {
+      setErr(String(ex.message || ex));
+    }
+  };
+  const reopen = async o => {
+    try {
+      await sbUpdate("offers", "id", o.id, {
+        status: "sent"
+      });
+      flash("Oferta wznowiona — status: Wysłana.");
       reload();
     } catch (ex) {
       setErr(String(ex.message || ex));
@@ -5076,10 +5219,19 @@ function Offers({
       text: offerText(o),
       subject: offerSubject(o)
     })
-  }, "\uD83D\uDCE4 Wy\u015Blij"), " ", o.status !== "accepted" && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCE4 Wy\u015Blij"), " ", !["accepted", "rejected"].includes(o.status) && /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
-    onClick: () => accept(o)
-  }, "\u2713 Akceptuj"), " ", /*#__PURE__*/React.createElement("button", {
+    onClick: () => accept(o),
+    title: "Klient zaakceptowa\u0142 \u2014 utw\xF3rz rezerwacj\u0119"
+  }, "\u2713 Akceptuj"), " ", !["accepted", "rejected"].includes(o.status) && /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => reject(o),
+    title: "Klient odrzuci\u0142 ofert\u0119"
+  }, "\u2717 Odrzu\u0107"), " ", ["rejected", "expired"].includes(o.status) && /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => reopen(o),
+    title: "Wr\xF3\u0107 do statusu Wys\u0142ana"
+  }, "\u21A9 Wzn\xF3w"), " ", /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => open(o)
   }, "Edytuj"), " ", /*#__PURE__*/React.createElement("button", {
