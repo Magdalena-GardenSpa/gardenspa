@@ -4875,13 +4875,28 @@ function CalendarView({
     };
   };
 
-  // skraca adres dostawy do samego miasta (zwykle po ostatnim przecinku)
+  // wyłuskuje miasto z adresu — nigdy nie pokazuje ulicy
   const shortLoc = addr => {
     if (!addr) return "";
-    const parts = String(addr).split(",").map(s => s.trim()).filter(Boolean);
-    let p = parts.length ? parts[parts.length - 1] : addr;
-    p = p.replace(/^\d{2}-\d{3}\s+/, ""); // odetnij kod pocztowy z początku
-    return p.length > 18 ? p.slice(0, 16) + "…" : p;
+    const s = String(addr).trim();
+    // 1. Najpewniejsze: kod pocztowy + nazwa miasta po nim (np. "62-095 Murowana Goślina")
+    const m = s.match(/\d{2}-\d{3}\s+([^,\d]+)/);
+    if (m) {
+      let c = m[1].trim().replace(/[,\.].*$/, "").trim();
+      return c.length > 18 ? c.slice(0, 16) + "…" : c;
+    }
+    // 2. Inaczej: ostatni człon po przecinku — pod warunkiem, że nie wygląda jak ulica
+    const parts = s.split(",").map(x => x.trim()).filter(Boolean);
+    const looksLikeStreet = p => /^(ul\.?|al\.?|aleja|os\.?|osiedle|pl\.?|plac|rondo)\s/i.test(p) || /^\d/.test(p);
+    if (parts.length >= 2) {
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i].replace(/^\d{2}-\d{3}\s+/, "");
+        if (!looksLikeStreet(p)) return p.length > 18 ? p.slice(0, 16) + "…" : p;
+      }
+    } else if (parts.length === 1 && !looksLikeStreet(parts[0]) && !/\d/.test(parts[0])) {
+      return parts[0].length > 18 ? parts[0].slice(0, 16) + "…" : parts[0];
+    }
+    return ""; // nie pokazujemy ulicy nigdy
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "topbar"
