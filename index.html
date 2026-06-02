@@ -3479,6 +3479,7 @@ function Reservations({
     deposit_amount: 0,
     cost: 0,
     rental_override: "",
+    booking_deposit_amount: "",
     _addons: []
   };
   const [f, setF] = useState(blank);
@@ -3550,7 +3551,8 @@ function Reservations({
         rate_qty: r.rate_qty || 1,
         _addons: ra,
         deposit_amount: r.deposit_amount || (eq ? eq.deposit : 0),
-        rental_override: r.rental_cost != null ? String(r.rental_cost) : ""
+        rental_override: r.rental_cost != null ? String(r.rental_cost) : "",
+        booking_deposit_amount: r.booking_deposit_amount != null ? String(r.booking_deposit_amount) : ""
       });
       setEditing(r.id);
     } else {
@@ -3646,7 +3648,8 @@ function Reservations({
         total: calc.grand,
         notes: f.notes,
         rate_mode: f.rate_mode,
-        rate_qty: +f.rate_qty || 1
+        rate_qty: +f.rate_qty || 1,
+        booking_deposit_amount: f.booking_deposit_amount === "" || f.booking_deposit_amount == null ? null : +f.booking_deposit_amount
       };
       let resId = editing;
       if (editing === "new") {
@@ -3708,6 +3711,39 @@ function Reservations({
       setErr(String(ex.message));
     }
   };
+  const toggleDeposit = async r => {
+    const isPaid = !!r.booking_deposit_paid;
+    try {
+      await sbUpdate("reservations", "id", r.id, isPaid ? {
+        booking_deposit_paid: false,
+        booking_deposit_paid_date: null
+      } : {
+        booking_deposit_paid: true,
+        booking_deposit_paid_date: new Date().toISOString().slice(0, 10)
+      });
+      flash(isPaid ? "Cofnięto oznaczenie wpłaty zaliczki." : "Zaznaczono wpłatę zaliczki rezerwacyjnej.");
+      reload();
+    } catch (ex) {
+      setErr(String(ex.message || ex));
+    }
+  };
+  const [settling, setSettling] = useState(null); // rezerwacja w trybie rozliczenia
+
+  const setReservationField = async (r, patch, msg) => {
+    try {
+      await sbUpdate("reservations", "id", r.id, patch);
+      if (msg) flash(msg);
+      reload();
+      // odśwież lokalnie obiekt settling
+      setSettling(s => s && s.id === r.id ? {
+        ...s,
+        ...patch
+      } : s);
+    } catch (ex) {
+      setErr(String(ex.message || ex));
+    }
+  };
+  const today = () => new Date().toISOString().slice(0, 10);
   const smsText = r => {
     const a = addons.filter(x => x.reservation_id === r.id);
     const aSum = a.reduce((s, x) => s + (+x.price || 0) * (+x.quantity || 1), 0);
@@ -3720,7 +3756,7 @@ function Reservations({
     onClick: () => open(null)
   }, "+ Nowa rezerwacja")), /*#__PURE__*/React.createElement("div", {
     className: "card scroll-x"
-  }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Sprz\u0119t"), /*#__PURE__*/React.createElement("th", null, "Klient"), /*#__PURE__*/React.createElement("th", null, "Termin"), /*#__PURE__*/React.createElement("th", null, "Status"), /*#__PURE__*/React.createElement("th", null, "Kwota"), /*#__PURE__*/React.createElement("th", null, "Mar\u017Ca"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, reservations.map(r => /*#__PURE__*/React.createElement("tr", {
+  }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Sprz\u0119t"), /*#__PURE__*/React.createElement("th", null, "Klient"), /*#__PURE__*/React.createElement("th", null, "Termin"), /*#__PURE__*/React.createElement("th", null, "Status"), /*#__PURE__*/React.createElement("th", null, "Kwota"), /*#__PURE__*/React.createElement("th", null, "Zaliczka"), /*#__PURE__*/React.createElement("th", null, "Mar\u017Ca"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, reservations.map(r => /*#__PURE__*/React.createElement("tr", {
     key: r.id
   }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("b", null, equipName(r.equipment_id)), r.kind === "lift" && /*#__PURE__*/React.createElement("span", {
     className: "badge b-blue",
@@ -3734,7 +3770,20 @@ function Reservations({
     style: {
       fontSize: 11
     }
-  }, "w tym kaucja ", fmtPLN(r.deposit_amount))), /*#__PURE__*/React.createElement("td", null, (() => {
+  }, "w tym kaucja ", fmtPLN(r.deposit_amount))), /*#__PURE__*/React.createElement("td", null, r.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => toggleDeposit(r),
+    title: "Wpłacono " + fmtDate(r.booking_deposit_paid_date) + " — kliknij, by cofnąć",
+    style: {
+      background: "#e8f3e9",
+      color: "#1b5e20",
+      fontWeight: 600
+    }
+  }, "\u2713 ", +r.booking_deposit_amount || +settings.booking_deposit || 200, " z\u0142") : /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => toggleDeposit(r),
+    title: "Klient wp\u0142aci\u0142 zaliczk\u0119 \u2014 kliknij, by oznaczy\u0107"
+  }, "\uD83D\uDCB0 Oznacz wp\u0142at\u0119")), /*#__PURE__*/React.createElement("td", null, (() => {
     const aSum = addons.filter(a => a.reservation_id === r.id).reduce((s, a) => s + (+a.price || 0) * (+a.quantity || 1), 0);
     const rev = (+r.rental_cost || 0) + (+r.transport_cost || 0) + aSum;
     const cost = +r.cost || 0;
@@ -3762,6 +3811,10 @@ function Reservations({
     title: "Nast\u0119pny etap"
   }, "\u25B8 etap"), " ", /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
+    onClick: () => setSettling(r),
+    title: "Rozliczenie finansowe"
+  }, "\uD83D\uDCB0 Rozliczenie"), " ", /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
     onClick: () => setSms({
       r,
       text: smsText(r)
@@ -3776,7 +3829,7 @@ function Reservations({
     className: "btn danger sm",
     onClick: () => del(r.id)
   }, "Usu\u0144")))), reservations.length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
-    colSpan: "7",
+    colSpan: "8",
     className: "empty"
   }, "Brak rezerwacji."))))), editing && /*#__PURE__*/React.createElement(Modal, {
     wide: true,
@@ -3875,6 +3928,13 @@ function Reservations({
     type: "number",
     value: f.deposit_amount,
     onChange: e => set("deposit_amount", e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Zaliczka rezerwacyjna (z\u0142)"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: f.booking_deposit_amount,
+    onChange: e => set("booking_deposit_amount", e.target.value),
+    placeholder: String(+settings.booking_deposit || 200) + " (z Ustawień)"
   }))), f.kind === "lift" && /*#__PURE__*/React.createElement("div", {
     className: "row2"
   }, /*#__PURE__*/React.createElement(Field, {
@@ -4034,7 +4094,254 @@ function Reservations({
     className: "btn primary",
     onClick: save,
     disabled: saving
-  }, saving ? "Zapisywanie…" : "Zapisz rezerwację"))), sms && (() => {
+  }, saving ? "Zapisywanie…" : "Zapisz rezerwację"))), settling && (() => {
+    const r = settling;
+    const cli = clients.find(c => c.id === r.client_id) || {};
+    const aSum = addons.filter(a => a.reservation_id === r.id).reduce((s, a) => s + (+a.price || 0) * (+a.quantity || 1), 0);
+    const dep = +r.booking_deposit_amount || +settings.booking_deposit || 200;
+    const total = +r.total || 0;
+    const remaining = Math.max(0, total - (r.booking_deposit_paid ? dep : 0));
+    const kaucja = +r.deposit_amount || 0;
+    const damages = +r.damage_deductions || 0;
+    const kaucjaReturn = Math.max(0, kaucja - damages);
+    const paidSoFar = (r.booking_deposit_paid ? dep : 0) + (r.final_payment_paid ? remaining : 0) + (r.deposit_collected ? kaucja : 0);
+    const remainingToCollect = (r.booking_deposit_paid ? 0 : dep) + (r.final_payment_paid ? 0 : remaining) + (r.deposit_collected ? 0 : kaucja);
+    return /*#__PURE__*/React.createElement(Modal, {
+      wide: true,
+      title: "Rozliczenie rezerwacji",
+      onClose: () => setSettling(null)
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "muted",
+      style: {
+        fontSize: 13,
+        marginBottom: 10
+      }
+    }, "Klient: ", /*#__PURE__*/React.createElement("b", null, cli.name || "—"), " \xB7 ", equipName(r.equipment_id), " \xB7 ", fmtDate(r.start_date), "\u2013", fmtDate(r.end_date)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: "#f7f5ee",
+        padding: "12px 14px",
+        borderRadius: 8,
+        marginBottom: 14,
+        fontSize: 13.5
+      }
+    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCCB Plan"), /*#__PURE__*/React.createElement("br", null), "Wynajem: ", fmtPLN(r.rental_cost), " \xB7 Transport: ", fmtPLN(r.transport_cost), " \xB7 Dodatki: ", fmtPLN(aSum), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", null, "RAZEM: ", fmtPLN(total)), " \xB7 Kaucja zwrotna: ", fmtPLN(kaucja)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: "12px 14px",
+        borderRadius: 8,
+        marginBottom: 10,
+        border: "1px solid #e3e0d6"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCB0 Zaliczka rezerwacyjna"), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        marginTop: 4
+      }
+    }, "Kwota: ", /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      value: dep,
+      onChange: e => setReservationField(r, {
+        booking_deposit_amount: +e.target.value || 0
+      }),
+      style: {
+        width: 90,
+        padding: "4px 8px",
+        border: "1px solid #e3e0d6",
+        borderRadius: 6,
+        textAlign: "right"
+      }
+    }), /*#__PURE__*/React.createElement("span", null, "z\u0142")), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 13,
+        marginTop: 6,
+        display: "inline-block"
+      }
+    }, r.booking_deposit_paid ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#1b5e20"
+      }
+    }, "\u2713 Wp\u0142acona ", r.booking_deposit_paid_date ? fmtDate(r.booking_deposit_paid_date) : "") : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#8a2018"
+      }
+    }, "\u274C Niewp\u0142acona"))), /*#__PURE__*/React.createElement("button", {
+      className: "btn ghost sm",
+      onClick: () => setReservationField(r, r.booking_deposit_paid ? {
+        booking_deposit_paid: false,
+        booking_deposit_paid_date: null
+      } : {
+        booking_deposit_paid: true,
+        booking_deposit_paid_date: today()
+      }, r.booking_deposit_paid ? "Cofnięto" : "Oznaczono wpłatę zaliczki")
+    }, r.booking_deposit_paid ? "Cofnij" : "Oznacz wpłatę"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: "12px 14px",
+        borderRadius: 8,
+        marginBottom: 10,
+        border: "1px solid #e3e0d6"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCB5 Pozosta\u0142a kwota"), " \u2014 ", fmtPLN(remaining), " ", /*#__PURE__*/React.createElement("span", {
+      className: "muted"
+    }, "(p\u0142atna przy dostawie)"), /*#__PURE__*/React.createElement("br", null), r.final_payment_paid ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#1b5e20",
+        fontSize: 13
+      }
+    }, "\u2713 Wp\u0142acona ", r.final_payment_date ? fmtDate(r.final_payment_date) : "") : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#8a2018",
+        fontSize: 13
+      }
+    }, "\u274C Niewp\u0142acona")), /*#__PURE__*/React.createElement("button", {
+      className: "btn ghost sm",
+      onClick: () => setReservationField(r, r.final_payment_paid ? {
+        final_payment_paid: false,
+        final_payment_date: null
+      } : {
+        final_payment_paid: true,
+        final_payment_date: today()
+      }, r.final_payment_paid ? "Cofnięto" : "Oznaczono wpłatę reszty")
+    }, r.final_payment_paid ? "Cofnij" : "Oznacz wpłatę"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: "12px 14px",
+        borderRadius: 8,
+        marginBottom: 10,
+        border: "1px solid #e3e0d6"
+      }
+    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDEE1\uFE0F Kaucja"), " \u2014 ", fmtPLN(kaucja), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13
+      }
+    }, "Pobrana od klienta: ", r.deposit_collected ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#1b5e20"
+      }
+    }, "\u2713 ", r.deposit_collected_date ? fmtDate(r.deposit_collected_date) : "") : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#8a2018"
+      }
+    }, "\u274C")), /*#__PURE__*/React.createElement("button", {
+      className: "btn ghost sm",
+      onClick: () => setReservationField(r, r.deposit_collected ? {
+        deposit_collected: false,
+        deposit_collected_date: null
+      } : {
+        deposit_collected: true,
+        deposit_collected_date: today()
+      }, r.deposit_collected ? "Cofnięto" : "Oznaczono pobranie kaucji")
+    }, r.deposit_collected ? "Cofnij" : "Oznacz pobranie")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        display: "grid",
+        gridTemplateColumns: "160px 1fr",
+        gap: 8,
+        alignItems: "center"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 13
+      }
+    }, "Potr\u0105cenia za szkody:"), /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      value: r.damage_deductions || 0,
+      onChange: e => setReservationField(r, {
+        damage_deductions: +e.target.value || 0
+      }),
+      style: {
+        padding: "6px 8px",
+        border: "1px solid #e3e0d6",
+        borderRadius: 6
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 13
+      }
+    }, "Opis szk\xF3d / uwagi:"), /*#__PURE__*/React.createElement("input", {
+      value: r.damage_note || "",
+      onChange: e => setReservationField(r, {
+        damage_note: e.target.value
+      }),
+      placeholder: "np. zarysowanie, brakuj\u0105ce akcesoria\u2026",
+      style: {
+        padding: "6px 8px",
+        border: "1px solid #e3e0d6",
+        borderRadius: 6
+      }
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginTop: 10,
+        paddingTop: 10,
+        borderTop: "1px dashed #e3e0d6"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13
+      }
+    }, "Do zwrotu klientowi: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(kaucjaReturn)), damages > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "muted"
+    }, " (", fmtPLN(kaucja), " \u2212 ", fmtPLN(damages), " potr\u0105cenie)"), /*#__PURE__*/React.createElement("br", null), "Zwr\xF3cona: ", r.deposit_returned ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#1b5e20"
+      }
+    }, "\u2713 ", r.deposit_returned_date ? fmtDate(r.deposit_returned_date) : "") : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#8a2018"
+      }
+    }, "\u274C")), /*#__PURE__*/React.createElement("button", {
+      className: "btn ghost sm",
+      onClick: () => setReservationField(r, r.deposit_returned ? {
+        deposit_returned: false,
+        deposit_returned_date: null
+      } : {
+        deposit_returned: true,
+        deposit_returned_date: today()
+      }, r.deposit_returned ? "Cofnięto" : "Oznaczono zwrot kaucji")
+    }, r.deposit_returned ? "Cofnij" : "Oznacz zwrot kaucji"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: "#e8f3e9",
+        padding: "12px 14px",
+        borderRadius: 8,
+        fontSize: 13.5
+      }
+    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCCA Stan rozliczenia"), /*#__PURE__*/React.createElement("br", null), "Klient ju\u017C zap\u0142aci\u0142: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(paidSoFar)), /*#__PURE__*/React.createElement("br", null), "Klient ma jeszcze do zap\u0142aty: ", /*#__PURE__*/React.createElement("b", {
+      style: {
+        color: remainingToCollect > 0 ? "#b3261e" : "#1b5e20"
+      }
+    }, fmtPLN(remainingToCollect)), /*#__PURE__*/React.createElement("br", null), "Klient odzyska po zwrocie sprz\u0119tu: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(r.deposit_returned ? 0 : kaucjaReturn))), /*#__PURE__*/React.createElement("div", {
+      className: "modal-actions"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn primary",
+      onClick: () => setSettling(null)
+    }, "Zamknij")));
+  })(), sms && (() => {
     const cli = clients.find(c => c.id === sms.r.client_id) || {};
     const smsUrl = cli.phone ? `sms:${cli.phone.replace(/\s/g, "")}?body=${encodeURIComponent(sms.text)}` : null;
     const waUrl = cli.phone ? `https://wa.me/${waPhone(cli.phone)}?text=${encodeURIComponent(sms.text)}` : null;
@@ -4111,7 +4418,7 @@ function Reservations({
 }
 
 /* ============ UMOWA / FAKTURA DO DRUKU ============ */
-const CONTRACT_PLACEHOLDERS = [["numer_rezerwacji", "ID rezerwacji"], ["data_dokumentu", "Dzisiejsza data"], ["najemca", "Najemca (pełne dane)"], ["najemca_imie", "Imię i nazwisko"], ["najemca_firma", "Nazwa firmy"], ["najemca_nip", "NIP"], ["najemca_adres", "Adres do faktury"], ["najemca_telefon", "Telefon"], ["najemca_email", "E-mail"], ["sprzet", "Nazwa sprzętu"], ["kategoria", "Kategoria sprzętu"], ["data_od", "Data od"], ["data_do", "Data do"], ["dni", "Liczba dni"], ["cena_wynajem", "Kwota wynajmu"], ["cena_transport", "Kwota transportu"], ["cena_dodatki", "Kwota dodatków"], ["kaucja", "Kaucja zwrotna"], ["razem", "RAZEM do zapłaty"], ["adres_dostawy", "Adres dostawy"], ["adres_prac", "Adres prac (podnośnik)"], ["operator", "Operator (podnośnik)"], ["notatki", "Uwagi/notatki"], ["wynajmujacy", "Nazwa Twojej firmy"], ["miasto_wynajmujacego", "Miasto Twojej firmy"]];
+const CONTRACT_PLACEHOLDERS = [["numer_rezerwacji", "ID rezerwacji"], ["data_dokumentu", "Dzisiejsza data"], ["najemca", "Najemca (pełne dane)"], ["najemca_imie", "Imię i nazwisko"], ["najemca_firma", "Nazwa firmy"], ["najemca_nip", "NIP"], ["najemca_adres", "Adres do faktury"], ["najemca_telefon", "Telefon"], ["najemca_email", "E-mail"], ["sprzet", "Nazwa sprzętu"], ["kategoria", "Kategoria sprzętu"], ["data_od", "Data od"], ["data_do", "Data do"], ["dni", "Liczba dni"], ["cena_wynajem", "Kwota wynajmu"], ["cena_transport", "Kwota transportu"], ["cena_dodatki", "Kwota dodatków"], ["kaucja", "Kaucja zwrotna"], ["zaliczka", "Zaliczka rezerwacyjna (kwota)"], ["zaliczka_status", "Zaliczka — wpłacona/niewpłacona"], ["pozostalo", "Pozostało do zapłaty (po odjęciu zaliczki)"], ["razem", "RAZEM do zapłaty"], ["adres_dostawy", "Adres dostawy"], ["adres_prac", "Adres prac (podnośnik)"], ["operator", "Operator (podnośnik)"], ["notatki", "Uwagi/notatki"], ["wynajmujacy", "Nazwa Twojej firmy"], ["miasto_wynajmujacego", "Miasto Twojej firmy"]];
 const DEFAULT_CONTRACT_TEMPLATE = `UMOWA WYNAJMU nr {{numer_rezerwacji}}
 
 zawarta dnia {{data_dokumentu}} w {{miasto_wynajmujacego}}, pomiędzy:
@@ -4149,6 +4456,9 @@ function fillContract(tpl, data) {
 function buildContractData(r, client, equip, settings, addons) {
   const aSum = (addons || []).reduce((s, x) => s + (+x.price || 0) * (+x.quantity || 1), 0);
   const days = +r.rate_qty || (r.start_date && r.end_date ? Math.max(1, Math.round((new Date(r.end_date) - new Date(r.start_date)) / 86400000) + 1) : 1);
+  const depAmt = +r.booking_deposit_amount || +settings.booking_deposit || 200;
+  const depPaid = !!r.booking_deposit_paid;
+  const remaining = depPaid ? Math.max(0, (+r.total || 0) - depAmt) : +r.total || 0;
   return {
     numer_rezerwacji: r.id ? String(r.id).slice(0, 8).toUpperCase() : "",
     data_dokumentu: fmtDate(new Date()),
@@ -4156,7 +4466,7 @@ function buildContractData(r, client, equip, settings, addons) {
     najemca_imie: client ? client.name : "",
     najemca_firma: client ? client.company_name || "" : "",
     najemca_nip: client ? client.nip || "" : "",
-    najemca_adres: client ? client.invoice_address || "" : "",
+    najemca_adres: client ? client.invoice_address || client.address || "" : "",
     najemca_telefon: client ? client.phone || "" : "",
     najemca_email: client ? client.email || "" : "",
     sprzet: equip ? equip.name : "",
@@ -4168,6 +4478,9 @@ function buildContractData(r, client, equip, settings, addons) {
     cena_transport: fmtPLN(r.transport_cost),
     cena_dodatki: fmtPLN(aSum),
     kaucja: fmtPLN(r.deposit_amount),
+    zaliczka: fmtPLN(depAmt),
+    zaliczka_status: depPaid ? "wpłacona " + (r.booking_deposit_paid_date ? fmtDate(r.booking_deposit_paid_date) : "") : "niewpłacona",
+    pozostalo: fmtPLN(remaining),
     razem: fmtPLN(r.total),
     adres_dostawy: r.delivery_address || "",
     adres_prac: r.lift_address || "",
@@ -4369,7 +4682,31 @@ function PrintContract({
       padding: "9px 10px",
       color: "var(--green-d)"
     }
-  }, fmtPLN(r.total))))), r.notes && /*#__PURE__*/React.createElement("p", {
+  }, fmtPLN(r.total))), r.booking_deposit_paid && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: "7px 10px",
+      color: "#1b5e20"
+    }
+  }, "Wp\u0142acono zaliczk\u0119 ", r.booking_deposit_paid_date && "(" + fmtDate(r.booking_deposit_paid_date) + ")"), /*#__PURE__*/React.createElement("td", {
+    style: {
+      textAlign: "right",
+      padding: "7px 10px",
+      color: "#1b5e20"
+    }
+  }, "\u2212", fmtPLN(+r.booking_deposit_amount || +settings.booking_deposit || 200))), /*#__PURE__*/React.createElement("tr", {
+    style: {
+      fontWeight: "bold"
+    }
+  }, /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: "7px 10px"
+    }
+  }, "Pozosta\u0142o do zap\u0142aty"), /*#__PURE__*/React.createElement("td", {
+    style: {
+      textAlign: "right",
+      padding: "7px 10px"
+    }
+  }, fmtPLN(Math.max(0, (+r.total || 0) - (+r.booking_deposit_amount || +settings.booking_deposit || 200)))))))), r.notes && /*#__PURE__*/React.createElement("p", {
     style: {
       marginTop: 12,
       fontSize: 13
@@ -5020,6 +5357,7 @@ function Offers({
     delivery_address: "",
     notes: "",
     rental_override: "",
+    booking_deposit_amount: "",
     _addons: []
   };
   const [f, setF] = useState(blank);
@@ -5097,6 +5435,7 @@ function Offers({
         delivery_address: o.delivery_address || "",
         notes: o.notes || "",
         rental_override: o.rental_cost != null ? String(o.rental_cost) : "",
+        booking_deposit_amount: o.booking_deposit_amount != null ? String(o.booking_deposit_amount) : "",
         _addons: oa
       });
       setEditing(o.id);
@@ -5172,7 +5511,8 @@ function Offers({
         operator: f.operator,
         delivery_address: f.delivery_address,
         notes: f.notes,
-        valid_until: f.valid_until || null
+        valid_until: f.valid_until || null,
+        booking_deposit_amount: f.booking_deposit_amount === "" || f.booking_deposit_amount == null ? null : +f.booking_deposit_amount
       };
       let oId = editing;
       if (editing === "new") {
@@ -5227,7 +5567,10 @@ function Offers({
         delivery_address: o.delivery_address,
         notes: o.notes,
         rate_mode: o.rate_mode,
-        rate_qty: o.rate_qty
+        rate_qty: o.rate_qty,
+        booking_deposit_paid: !!o.booking_deposit_paid,
+        booking_deposit_paid_date: o.booking_deposit_paid_date || null,
+        booking_deposit_amount: o.booking_deposit_amount != null ? o.booking_deposit_amount : null
       };
       const r = await sbInsert("reservations", rBody);
       const rId = r[0].id;
@@ -5280,8 +5623,12 @@ function Offers({
     if (aSum) s += `Dodatki: ${fmtPLN(aSum)}\n`;
     s += `Kaucja (zwrotna): ${fmtPLN(o.deposit_amount)}\nRAZEM: ${fmtPLN(o.total)}\n`;
     if (o.valid_until) s += `\nOferta ważna do: ${fmtDate(o.valid_until)}.\n`;
-    const dep = +settings.booking_deposit || 200;
-    s += `\nAby zarezerwować ten termin, prosimy o wpłatę zaliczki ${dep} zł. Po zaksięgowaniu wpłaty potwierdzimy rezerwację.\n`;
+    const dep = +o.booking_deposit_amount || +settings.booking_deposit || 200;
+    if (o.booking_deposit_paid) {
+      s += `\n✓ Zaliczka rezerwacyjna ${dep} zł — odnotowana. Dziękujemy! Termin zarezerwowany.\n`;
+    } else {
+      s += `\nAby zarezerwować ten termin, prosimy o wpłatę zaliczki ${dep} zł. Po zaksięgowaniu wpłaty potwierdzimy rezerwację.\n`;
+    }
     const who = currentUserFirstName();
     s += `\nPozdrawiamy,\n${settings.company_name || "GardenSpa"}${who ? " " + who : ""}`;
     return s;
@@ -5297,6 +5644,22 @@ function Offers({
       } catch (_) {}
     }
   };
+  const toggleDeposit = async o => {
+    const isPaid = !!o.booking_deposit_paid;
+    try {
+      await sbUpdate("offers", "id", o.id, isPaid ? {
+        booking_deposit_paid: false,
+        booking_deposit_paid_date: null
+      } : {
+        booking_deposit_paid: true,
+        booking_deposit_paid_date: new Date().toISOString().slice(0, 10)
+      });
+      flash(isPaid ? "Cofnięto oznaczenie wpłaty zaliczki." : "Zaznaczono wpłatę zaliczki rezerwacyjnej.");
+      reload();
+    } catch (ex) {
+      setErr(String(ex.message || ex));
+    }
+  };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "topbar"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, "Oferty / Wyceny"), /*#__PURE__*/React.createElement("p", null, "Wyceny dla konkretnego klienta \u2014 wy\u015Blij, wydrukuj, akceptuj")), /*#__PURE__*/React.createElement("button", {
@@ -5304,14 +5667,27 @@ function Offers({
     onClick: () => open(null)
   }, "+ Nowa oferta")), /*#__PURE__*/React.createElement("div", {
     className: "card scroll-x"
-  }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Nr"), /*#__PURE__*/React.createElement("th", null, "Klient"), /*#__PURE__*/React.createElement("th", null, "Sprz\u0119t"), /*#__PURE__*/React.createElement("th", null, "Termin"), /*#__PURE__*/React.createElement("th", null, "Kwota"), /*#__PURE__*/React.createElement("th", null, "Wa\u017Cna do"), /*#__PURE__*/React.createElement("th", null, "Status"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, offers.map(o => /*#__PURE__*/React.createElement("tr", {
+  }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Nr"), /*#__PURE__*/React.createElement("th", null, "Klient"), /*#__PURE__*/React.createElement("th", null, "Sprz\u0119t"), /*#__PURE__*/React.createElement("th", null, "Termin"), /*#__PURE__*/React.createElement("th", null, "Kwota"), /*#__PURE__*/React.createElement("th", null, "Zaliczka"), /*#__PURE__*/React.createElement("th", null, "Wa\u017Cna do"), /*#__PURE__*/React.createElement("th", null, "Status"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, offers.map(o => /*#__PURE__*/React.createElement("tr", {
     key: o.id
   }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("b", null, fmtOfferNo(o))), /*#__PURE__*/React.createElement("td", null, clientName(o.client_id)), /*#__PURE__*/React.createElement("td", null, equipName(o.equipment_id), o.kind === "lift" && /*#__PURE__*/React.createElement("span", {
     className: "badge b-blue",
     style: {
       marginLeft: 6
     }
-  }, "operator")), /*#__PURE__*/React.createElement("td", null, fmtDate(o.start_date), "\u2013", fmtDate(o.end_date)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("b", null, fmtPLN(o.total))), /*#__PURE__*/React.createElement("td", null, o.valid_until ? fmtDate(o.valid_until) : "—"), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+  }, "operator")), /*#__PURE__*/React.createElement("td", null, fmtDate(o.start_date), "\u2013", fmtDate(o.end_date)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("b", null, fmtPLN(o.total))), /*#__PURE__*/React.createElement("td", null, o.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => toggleDeposit(o),
+    title: "Wpłacono " + fmtDate(o.booking_deposit_paid_date) + " — kliknij, by cofnąć",
+    style: {
+      background: "#e8f3e9",
+      color: "#1b5e20",
+      fontWeight: 600
+    }
+  }, "\u2713 ", +o.booking_deposit_amount || +settings.booking_deposit || 200, " z\u0142") : /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => toggleDeposit(o),
+    title: "Klient wp\u0142aci\u0142 zaliczk\u0119 \u2014 kliknij, by oznaczy\u0107"
+  }, "\uD83D\uDCB0 Oznacz wp\u0142at\u0119")), /*#__PURE__*/React.createElement("td", null, o.valid_until ? fmtDate(o.valid_until) : "—"), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
     className: "badge " + (OST[o.status] || OST.draft).c
   }, (OST[o.status] || OST.draft).l)), /*#__PURE__*/React.createElement("td", {
     style: {
@@ -5350,7 +5726,7 @@ function Offers({
     className: "btn danger sm",
     onClick: () => del(o.id)
   }, "Usu\u0144")))), offers.length === 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
-    colSpan: "8",
+    colSpan: "9",
     className: "empty"
   }, "Brak ofert. Kliknij \u201E+ Nowa oferta\"."))))), editing && /*#__PURE__*/React.createElement(Modal, {
     wide: true,
@@ -5442,6 +5818,13 @@ function Offers({
     type: "number",
     value: f.deposit_amount,
     onChange: e => set("deposit_amount", e.target.value)
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Zaliczka rezerwacyjna (z\u0142)"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    value: f.booking_deposit_amount,
+    onChange: e => set("booking_deposit_amount", e.target.value),
+    placeholder: String(+settings.booking_deposit || 200) + " (z Ustawień)"
   }))), f.kind === "lift" && /*#__PURE__*/React.createElement("div", {
     className: "row2"
   }, /*#__PURE__*/React.createElement(Field, {
