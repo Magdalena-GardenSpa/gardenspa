@@ -506,8 +506,10 @@ function currentUserFirstName() {
 function socialFooter(settings) {
   const link = (settings && settings.social_link || "").trim();
   if (!link) return "";
-  // skróć: usuń https://www. i parametry po ? — żeby wyglądało zwięźle
-  const clean = link.replace(/^https?:\/\//, "").replace(/^www\./, "").split("?")[0];
+  // obcina UTM-y po ?, ale zachowuje https:// — żeby link był klikalny w SMS/mailu
+  let clean = link.split("?")[0].split("#")[0];
+  // dodaj https:// jeśli brak protokołu (potrzebne do auto-linkowania)
+  if (!/^https?:\/\//i.test(clean)) clean = "https://" + clean;
   return "\n🌿 " + clean;
 }
 function authHeaders() {
@@ -3754,7 +3756,22 @@ function Reservations({
   const smsText = r => {
     const a = addons.filter(x => x.reservation_id === r.id);
     const aSum = a.reduce((s, x) => s + (+x.price || 0) * (+x.quantity || 1), 0);
-    return `Dzień dobry! Kalkulacja wynajmu: ${equipName(r.equipment_id)}, termin ${fmtDate(r.start_date)}–${fmtDate(r.end_date)}.\n` + `Wynajem: ${fmtPLN(r.rental_cost)}\nTransport: ${fmtPLN(r.transport_cost)}\n` + (aSum ? `Dodatki: ${fmtPLN(aSum)}\n` : ``) + `Kaucja (zwrotna): ${fmtPLN(r.deposit_amount)}\n` + `RAZEM: ${fmtPLN(r.total)}\nPozdrawiamy, ${settings.company_name || "GardenSpa"}${currentUserFirstName() ? " " + currentUserFirstName() : ""}` + socialFooter(settings);
+    const kaucja = +r.deposit_amount || 0;
+    const service = Math.max(0, (+r.total || 0) - kaucja);
+    let s = `Dzień dobry!\nKalkulacja wynajmu:\n\n`;
+    s += `Przedmiot: ${equipName(r.equipment_id)}\n`;
+    s += `Termin: ${fmtDate(r.start_date)} – ${fmtDate(r.end_date)}\n`;
+    s += `Cena: ${fmtPLN(service)}`;
+    if (kaucja > 0) s += ` (+ zwrotna kaucja ${fmtPLN(kaucja)})`;
+    s += `\n`;
+    if (r.notes && r.notes.trim()) s += `\nDodatkowe ustalenia: ${r.notes.trim()}\n`;
+    if (settings.payment_info && settings.payment_info.trim()) {
+      s += `\nPłatność: ${settings.payment_info.trim()}\n`;
+    }
+    const who = currentUserFirstName();
+    s += `\nPozdrawiamy,\n${settings.company_name || "GardenSpa"}${who ? " " + who : ""}`;
+    s += socialFooter(settings);
+    return s;
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "topbar"
@@ -5651,18 +5668,24 @@ function Offers({
   const offerText = o => {
     const a = offerAddons.filter(x => x.offer_id === o.id);
     const aSum = a.reduce((s, x) => s + (+x.price || 0) * (+x.quantity || 1), 0);
+    const kaucja = +o.deposit_amount || 0;
+    const service = Math.max(0, (+o.total || 0) - kaucja);
     let s = `Dzień dobry!\nPrzesyłamy wycenę nr ${fmtOfferNo(o)}:\n\n`;
     s += `Przedmiot: ${equipName(o.equipment_id)}\n`;
     s += `Termin: ${fmtDate(o.start_date)} – ${fmtDate(o.end_date)}\n`;
-    s += `Wynajem: ${fmtPLN(o.rental_cost)}\nTransport: ${fmtPLN(o.transport_cost)}\n`;
-    if (aSum) s += `Dodatki: ${fmtPLN(aSum)}\n`;
-    s += `Kaucja (zwrotna): ${fmtPLN(o.deposit_amount)}\nRAZEM: ${fmtPLN(o.total)}\n`;
+    s += `Cena: ${fmtPLN(service)}`;
+    if (kaucja > 0) s += ` (+ zwrotna kaucja ${fmtPLN(kaucja)})`;
+    s += `\n`;
+    if (o.notes && o.notes.trim()) s += `\nDodatkowe ustalenia: ${o.notes.trim()}\n`;
     if (o.valid_until) s += `\nOferta ważna do: ${fmtDate(o.valid_until)}.\n`;
     const dep = +o.booking_deposit_amount || +settings.booking_deposit || 200;
     if (o.booking_deposit_paid) {
       s += `\n✓ Zaliczka rezerwacyjna ${dep} zł — odnotowana. Dziękujemy! Termin zarezerwowany.\n`;
     } else {
-      s += `\nAby zarezerwować ten termin, prosimy o wpłatę zaliczki ${dep} zł. Po zaksięgowaniu wpłaty potwierdzimy rezerwację.\n`;
+      s += `\nAby zarezerwować termin, prosimy o wpłatę zaliczki ${dep} zł.\n`;
+    }
+    if (settings.payment_info && settings.payment_info.trim()) {
+      s += `Płatność: ${settings.payment_info.trim()}\n`;
     }
     const who = currentUserFirstName();
     s += `\nPozdrawiamy,\n${settings.company_name || "GardenSpa"}${who ? " " + who : ""}`;
@@ -6519,7 +6542,8 @@ function Settings({
         sms_api_key: f.sms_api_key,
         contract_template: f.contract_template || "",
         booking_deposit: +f.booking_deposit || 200,
-        social_link: f.social_link || ""
+        social_link: f.social_link || "",
+        payment_info: f.payment_info || ""
       });
       flash("Zapisano ustawienia.");
       reload();
@@ -6624,6 +6648,12 @@ function Settings({
     value: f.social_link || "",
     onChange: e => set("social_link", e.target.value),
     placeholder: "np. linktr.ee/GardenSpa_Wellness_"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Dane do p\u0142atno\u015Bci (do\u0142\u0105czane do SMS-\xF3w / maili)"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: f.payment_info || "",
+    onChange: e => set("payment_info", e.target.value),
+    placeholder: "np. BLIK na nr 883 101 032"
   })), /*#__PURE__*/React.createElement("p", {
     className: "muted",
     style: {
