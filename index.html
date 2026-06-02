@@ -4100,12 +4100,15 @@ function Reservations({
     const aSum = addons.filter(a => a.reservation_id === r.id).reduce((s, a) => s + (+a.price || 0) * (+a.quantity || 1), 0);
     const dep = +r.booking_deposit_amount || +settings.booking_deposit || 200;
     const total = +r.total || 0;
-    const remaining = Math.max(0, total - (r.booking_deposit_paid ? dep : 0));
     const kaucja = +r.deposit_amount || 0;
+    const service = Math.max(0, total - kaucja); // wynajem + transport + dodatki (bez kaucji)
+    // Pozostała kwota za usługę = service − zaliczka (jeśli wpłacona)
+    const remaining = Math.max(0, service - (r.booking_deposit_paid ? dep : 0));
     const damages = +r.damage_deductions || 0;
     const kaucjaReturn = Math.max(0, kaucja - damages);
     const paidSoFar = (r.booking_deposit_paid ? dep : 0) + (r.final_payment_paid ? remaining : 0) + (r.deposit_collected ? kaucja : 0);
     const remainingToCollect = (r.booking_deposit_paid ? 0 : dep) + (r.final_payment_paid ? 0 : remaining) + (r.deposit_collected ? 0 : kaucja);
+    const collectAtDelivery = (r.final_payment_paid ? 0 : remaining) + (r.deposit_collected ? 0 : kaucja);
     return /*#__PURE__*/React.createElement(Modal, {
       wide: true,
       title: "Rozliczenie rezerwacji",
@@ -4124,7 +4127,7 @@ function Reservations({
         marginBottom: 14,
         fontSize: 13.5
       }
-    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCCB Plan"), /*#__PURE__*/React.createElement("br", null), "Wynajem: ", fmtPLN(r.rental_cost), " \xB7 Transport: ", fmtPLN(r.transport_cost), " \xB7 Dodatki: ", fmtPLN(aSum), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", null, "RAZEM: ", fmtPLN(total)), " \xB7 Kaucja zwrotna: ", fmtPLN(kaucja)), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCCB Plan"), /*#__PURE__*/React.createElement("br", null), "Wynajem: ", fmtPLN(r.rental_cost), " \xB7 Transport: ", fmtPLN(r.transport_cost), " \xB7 Dodatki: ", fmtPLN(aSum), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", null, "Za us\u0142ug\u0119: ", fmtPLN(service)), " \xB7 Kaucja zwrotna: ", fmtPLN(kaucja)), /*#__PURE__*/React.createElement("div", {
       style: {
         padding: "12px 14px",
         borderRadius: 8,
@@ -4198,9 +4201,9 @@ function Reservations({
         justifyContent: "space-between",
         alignItems: "center"
       }
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCB5 Pozosta\u0142a kwota"), " \u2014 ", fmtPLN(remaining), " ", /*#__PURE__*/React.createElement("span", {
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCB5 Pozosta\u0142a kwota za us\u0142ug\u0119"), " \u2014 ", fmtPLN(remaining), " ", /*#__PURE__*/React.createElement("span", {
       className: "muted"
-    }, "(p\u0142atna przy dostawie)"), /*#__PURE__*/React.createElement("br", null), r.final_payment_paid ? /*#__PURE__*/React.createElement("span", {
+    }, "(za wynajem, bez kaucji)"), /*#__PURE__*/React.createElement("br", null), r.final_payment_paid ? /*#__PURE__*/React.createElement("span", {
       style: {
         color: "#1b5e20",
         fontSize: 13
@@ -4226,7 +4229,9 @@ function Reservations({
         marginBottom: 10,
         border: "1px solid #e3e0d6"
       }
-    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDEE1\uFE0F Kaucja"), " \u2014 ", fmtPLN(kaucja), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDEE1\uFE0F Kaucja"), " \u2014 ", fmtPLN(kaucja), " ", /*#__PURE__*/React.createElement("span", {
+      className: "muted"
+    }, "(zwrotna)"), /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
         justifyContent: "space-between",
@@ -4237,7 +4242,7 @@ function Reservations({
       style: {
         fontSize: 13
       }
-    }, "Pobrana od klienta: ", r.deposit_collected ? /*#__PURE__*/React.createElement("span", {
+    }, "Pobrana od klienta (w dniu dostawy): ", r.deposit_collected ? /*#__PURE__*/React.createElement("span", {
       style: {
         color: "#1b5e20"
       }
@@ -4305,7 +4310,7 @@ function Reservations({
       style: {
         fontSize: 13
       }
-    }, "Do zwrotu klientowi: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(kaucjaReturn)), damages > 0 && /*#__PURE__*/React.createElement("span", {
+    }, "Do zwrotu klientowi (w dniu odbioru): ", /*#__PURE__*/React.createElement("b", null, fmtPLN(kaucjaReturn)), damages > 0 && /*#__PURE__*/React.createElement("span", {
       className: "muted"
     }, " (", fmtPLN(kaucja), " \u2212 ", fmtPLN(damages), " potr\u0105cenie)"), /*#__PURE__*/React.createElement("br", null), "Zwr\xF3cona: ", r.deposit_returned ? /*#__PURE__*/React.createElement("span", {
       style: {
@@ -4331,11 +4336,19 @@ function Reservations({
         borderRadius: 8,
         fontSize: 13.5
       }
-    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCCA Stan rozliczenia"), /*#__PURE__*/React.createElement("br", null), "Klient ju\u017C zap\u0142aci\u0142: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(paidSoFar)), /*#__PURE__*/React.createElement("br", null), "Klient ma jeszcze do zap\u0142aty: ", /*#__PURE__*/React.createElement("b", {
+    }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCCA Stan rozliczenia"), /*#__PURE__*/React.createElement("br", null), "Klient ju\u017C wp\u0142aci\u0142 (\u0142\u0105cznie z kaucj\u0105): ", /*#__PURE__*/React.createElement("b", null, fmtPLN(paidSoFar)), /*#__PURE__*/React.createElement("br", null), "Pozosta\u0142o do pobrania od klienta: ", /*#__PURE__*/React.createElement("b", {
       style: {
         color: remainingToCollect > 0 ? "#b3261e" : "#1b5e20"
       }
-    }, fmtPLN(remainingToCollect)), /*#__PURE__*/React.createElement("br", null), "Klient odzyska po zwrocie sprz\u0119tu: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(r.deposit_returned ? 0 : kaucjaReturn))), /*#__PURE__*/React.createElement("div", {
+    }, fmtPLN(remainingToCollect)), collectAtDelivery > 0 && remainingToCollect === collectAtDelivery && /*#__PURE__*/React.createElement("span", {
+      className: "muted"
+    }, " (w dniu dostawy)"), /*#__PURE__*/React.createElement("br", null), "Kaucja do zwrotu klientowi: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(r.deposit_returned ? 0 : kaucjaReturn)), r.deposit_returned && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#1b5e20"
+      }
+    }, " \u2713 ju\u017C zwr\xF3cona"), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+      className: "muted"
+    }, "Netto za us\u0142ug\u0119 (Tw\xF3j przych\xF3d): ", fmtPLN(service - damages))), /*#__PURE__*/React.createElement("div", {
       className: "modal-actions"
     }, /*#__PURE__*/React.createElement("button", {
       className: "btn primary",
