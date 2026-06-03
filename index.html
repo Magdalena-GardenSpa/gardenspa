@@ -4176,7 +4176,22 @@ function Reservations({
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn ghost",
     onClick: () => setEditing(null)
-  }, "Anuluj"), /*#__PURE__*/React.createElement("button", {
+  }, "Anuluj"), editing && editing !== "new" && /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost",
+    onClick: () => {
+      const cur = reservations.find(x => x.id === editing);
+      if (cur) {
+        setEditing(null);
+        addToSet(cur);
+      }
+    },
+    title: "Dodaj kolejny sprz\u0119t do tej rezerwacji (zestaw)",
+    style: {
+      background: "#f3e8ff",
+      color: "#6b46c1",
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCE6 + Dodaj sprz\u0119t do zestawu"), /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
     onClick: save,
     disabled: saving
@@ -6202,7 +6217,22 @@ function Offers({
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn ghost",
     onClick: () => setEditing(null)
-  }, "Anuluj"), /*#__PURE__*/React.createElement("button", {
+  }, "Anuluj"), editing && editing !== "new" && /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost",
+    onClick: () => {
+      const cur = offers.find(x => x.id === editing);
+      if (cur) {
+        setEditing(null);
+        addToSet(cur);
+      }
+    },
+    title: "Dodaj kolejny sprz\u0119t do tej oferty (zestaw)",
+    style: {
+      background: "#f3e8ff",
+      color: "#6b46c1",
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCE6 + Dodaj sprz\u0119t do zestawu"), /*#__PURE__*/React.createElement("button", {
     className: "btn primary",
     onClick: save,
     disabled: saving
