@@ -496,9 +496,21 @@ function clearSession() {
 function currentUserEmail() {
   return authSession && authSession.user ? authSession.user.email : "";
 }
-function currentUserFirstName() {
-  const email = currentUserEmail();
+function currentUserFirstName(settings) {
+  const email = (currentUserEmail() || "").toLowerCase();
   if (!email) return "";
+  // 1. Najpierw szukamy w mapie z ustawień (e-mail-fragment=imię w każdej linii)
+  if (settings && settings.signature_map) {
+    const lines = String(settings.signature_map).split("\n");
+    for (const line of lines) {
+      const eq = line.indexOf("=");
+      if (eq <= 0) continue;
+      const key = line.slice(0, eq).trim().toLowerCase();
+      const name = line.slice(eq + 1).trim();
+      if (key && name && email.includes(key)) return name;
+    }
+  }
+  // 2. Fallback: wyciągnięcie z części e-maila przed @
   const local = email.split("@")[0];
   const first = local.split(/[._+\-]/)[0];
   return first ? first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() : "";
@@ -3495,8 +3507,12 @@ function Clients({
     const consentOnly = mass.recipients === "consent";
     const fieldKey = mass.type === "email" ? "email" : "phone";
     const matching = clients.filter(c => (consentOnly ? c.marketing_consent : true) && c[fieldKey] && String(c[fieldKey]).trim());
-    const who = currentUserFirstName();
-    const footer = `\n\n— Pozdrawiamy,\n${settings.company_name || "GardenSpa"}${who ? " " + who : ""}` + socialFooter(settings) + `\n\nAby zrezygnować z otrzymywania wiadomości, odpowiedz STOP.`;
+    // diagnostyka
+    const withConsent = clients.filter(c => c.marketing_consent);
+    const withConsentEmail = withConsent.filter(c => c.email && String(c.email).trim());
+    const withConsentPhone = withConsent.filter(c => c.phone && String(c.phone).trim());
+    const who = currentUserFirstName(settings);
+    const footer = `\n\n— Pozdrawiamy,\n${settings.company_name || "GardenSpa"}${who ? " " + who : ""}` + socialFooter(settings);
     const fullBody = (mass.body || "") + footer;
     const sendEmail = () => {
       if (matching.length === 0) {
@@ -3574,12 +3590,45 @@ function Clients({
         fontSize: 13.5,
         marginBottom: 10
       }
-    }, "\uD83D\uDCEC Liczba odbiorc\xF3w: ", /*#__PURE__*/React.createElement("b", null, matching.length), " ", mass.type === "email" ? `(klienci z e-mailem${consentOnly ? " i zgodą" : ""})` : `(klienci z numerem telefonu${consentOnly ? " i zgodą" : ""})`, matching.length === 0 && /*#__PURE__*/React.createElement("div", {
+    }, "\uD83D\uDCEC Liczba odbiorc\xF3w: ", /*#__PURE__*/React.createElement("b", null, matching.length), " ", mass.type === "email" ? `(klienci z e-mailem${consentOnly ? " i zgodą" : ""})` : `(klienci z numerem telefonu${consentOnly ? " i zgodą" : ""})`, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: "#5a6b5d",
+        marginTop: 6,
+        paddingTop: 6,
+        borderTop: "1px dashed #b8d4bb"
+      }
+    }, /*#__PURE__*/React.createElement("b", null, "Stan bazy klient\xF3w:"), /*#__PURE__*/React.createElement("br", null), "\u2022 Klienci ze zgod\u0105 marketingow\u0105: ", /*#__PURE__*/React.createElement("b", null, withConsent.length), /*#__PURE__*/React.createElement("br", null), "\u2022 ...z tych \u2014 maj\u0105 e-mail: ", /*#__PURE__*/React.createElement("b", null, withConsentEmail.length), /*#__PURE__*/React.createElement("br", null), "\u2022 ...z tych \u2014 maj\u0105 telefon: ", /*#__PURE__*/React.createElement("b", null, withConsentPhone.length)), matching.length > 0 && /*#__PURE__*/React.createElement("details", {
+      style: {
+        marginTop: 6,
+        fontSize: 12.5
+      }
+    }, /*#__PURE__*/React.createElement("summary", {
+      style: {
+        cursor: "pointer",
+        color: "#1b5e20"
+      }
+    }, "\u25B8 Poka\u017C list\u0119 odbiorc\xF3w (", matching.length, ")"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxHeight: 160,
+        overflowY: "auto",
+        marginTop: 6,
+        fontSize: 12
+      }
+    }, matching.map(c => /*#__PURE__*/React.createElement("div", {
+      key: c.id,
+      style: {
+        padding: "3px 0",
+        borderBottom: "1px dashed #d8e2d6"
+      }
+    }, c.name, " ", /*#__PURE__*/React.createElement("span", {
+      className: "muted"
+    }, "\u2014 ", c[fieldKey]))))), matching.length === 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         color: "#b3261e",
         marginTop: 4
       }
-    }, "\u26A0\uFE0F Brak odbiorc\xF3w. Sprawd\u017A, czy klienci maj\u0105 ", mass.type === "email" ? "e-mail" : "telefon", " i ", consentOnly ? "zaznaczoną zgodę" : "dane", ".")), !consentOnly && /*#__PURE__*/React.createElement("div", {
+    }, "\u26A0\uFE0F Brak odbiorc\xF3w pasuj\u0105cych do tych filtr\xF3w. Sprawd\u017A, czy klienci maj\u0105 ", mass.type === "email" ? "e-mail" : "telefon", consentOnly ? " i zaznaczoną zgodę marketingową" : "", ".")), !consentOnly && /*#__PURE__*/React.createElement("div", {
       style: {
         background: "#fff8e1",
         padding: "8px 12px",
@@ -4060,7 +4109,7 @@ function Reservations({
     if (settings.payment_info && settings.payment_info.trim()) {
       s += `\nPłatność: ${settings.payment_info.trim()}\n`;
     }
-    const who = currentUserFirstName();
+    const who = currentUserFirstName(settings);
     s += `\nPozdrawiamy,\n${settings.company_name || "GardenSpa"}${who ? " " + who : ""}`;
     s += socialFooter(settings);
     return s;
@@ -6259,7 +6308,7 @@ function Offers({
     if (settings.payment_info && settings.payment_info.trim()) {
       s += `Płatność: ${settings.payment_info.trim()}\n`;
     }
-    const who = currentUserFirstName();
+    const who = currentUserFirstName(settings);
     s += `\nPozdrawiamy,\n${settings.company_name || "GardenSpa"}${who ? " " + who : ""}`;
     s += socialFooter(settings);
     return s;
@@ -7285,7 +7334,8 @@ function Settings({
         contract_template: f.contract_template || "",
         booking_deposit: +f.booking_deposit || 200,
         social_link: f.social_link || "",
-        payment_info: f.payment_info || ""
+        payment_info: f.payment_info || "",
+        signature_map: f.signature_map || ""
       });
       flash("Zapisano ustawienia.");
       reload();
@@ -7396,6 +7446,17 @@ function Settings({
     value: f.payment_info || "",
     onChange: e => set("payment_info", e.target.value),
     placeholder: "np. BLIK na nr 883 101 032"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Mapa podpis\xF3w (jak rozpoznawa\u0107 imi\u0119 w SMS/mailach \u2014 jedna linia: fragment_emaila=Imi\u0119)"
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: f.signature_map || "",
+    onChange: e => set("signature_map", e.target.value),
+    placeholder: "magdalenabalazyk=Magdalena\ntomek=Tomek",
+    style: {
+      minHeight: 70,
+      fontFamily: "monospace",
+      fontSize: 13
+    }
   })), /*#__PURE__*/React.createElement("p", {
     className: "muted",
     style: {
