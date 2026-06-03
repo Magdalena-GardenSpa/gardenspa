@@ -512,6 +512,9 @@ function socialFooter(settings) {
   if (!/^https?:\/\//i.test(clean)) clean = "https://" + clean;
   return "\n🌿 " + clean;
 }
+function generateSetId() {
+  return "set_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
 function authHeaders() {
   const token = authSession && authSession.access_token ? authSession.access_token : SUPABASE_KEY;
   return {
@@ -3543,7 +3546,7 @@ function Reservations({
       grand: revenue + deposit
     };
   }, [f, eq, settings]);
-  const open = r => {
+  const open = (r, preset) => {
     if (r) {
       const ra = addons.filter(a => a.reservation_id === r.id).map(a => ({
         name: a.name,
@@ -3561,12 +3564,14 @@ function Reservations({
         _addons: ra,
         deposit_amount: r.deposit_amount || (eq ? eq.deposit : 0),
         rental_override: r.rental_cost != null ? String(r.rental_cost) : "",
-        booking_deposit_amount: r.booking_deposit_amount != null ? String(r.booking_deposit_amount) : ""
+        booking_deposit_amount: r.booking_deposit_amount != null ? String(r.booking_deposit_amount) : "",
+        set_id: r.set_id || ""
       });
       setEditing(r.id);
     } else {
       setF({
-        ...blank
+        ...blank,
+        ...(preset || {})
       });
       setEditing("new");
     }
@@ -3580,6 +3585,36 @@ function Reservations({
       }));
     }
   }, [f.equipment_id]);
+
+  // Łączenie w zestaw — tworzy nową rezerwację z tym samym set_id
+  const addToSet = async r => {
+    let sid = r.set_id;
+    if (!sid) {
+      sid = generateSetId();
+      try {
+        await sbUpdate("reservations", "id", r.id, {
+          set_id: sid
+        });
+      } catch (ex) {
+        setErr(String(ex.message || ex));
+        return;
+      }
+    }
+    open(null, {
+      client_id: r.client_id || "",
+      kind: r.kind || "rental",
+      start_date: toInput(r.start_date),
+      end_date: toInput(r.end_date),
+      delivery_address: r.delivery_address || "",
+      notes: r.notes || "",
+      status: "confirmed",
+      booking_deposit_amount: r.booking_deposit_amount != null ? String(r.booking_deposit_amount) : "",
+      booking_deposit_paid: !!r.booking_deposit_paid,
+      booking_deposit_paid_date: r.booking_deposit_paid_date || null,
+      set_id: sid
+    });
+    flash("Ten sam klient/terminy/adres. Wybierz drugi sprzęt do zestawu i zapisz.");
+  };
   const addAddon = item => {
     const a = item ? {
       name: item.name,
@@ -3658,7 +3693,8 @@ function Reservations({
         notes: f.notes,
         rate_mode: f.rate_mode,
         rate_qty: +f.rate_qty || 1,
-        booking_deposit_amount: f.booking_deposit_amount === "" || f.booking_deposit_amount == null ? null : +f.booking_deposit_amount
+        booking_deposit_amount: f.booking_deposit_amount === "" || f.booking_deposit_amount == null ? null : +f.booking_deposit_amount,
+        set_id: f.set_id || null
       };
       let resId = editing;
       if (editing === "new") {
@@ -3754,17 +3790,25 @@ function Reservations({
   };
   const today = () => new Date().toISOString().slice(0, 10);
   const smsText = r => {
-    const a = addons.filter(x => x.reservation_id === r.id);
-    const aSum = a.reduce((s, x) => s + (+x.price || 0) * (+x.quantity || 1), 0);
-    const kaucja = +r.deposit_amount || 0;
-    const service = Math.max(0, (+r.total || 0) - kaucja);
-    let s = `Dzień dobry!\nKalkulacja wynajmu:\n\n`;
-    s += `Przedmiot: ${equipName(r.equipment_id)}\n`;
+    const setItems = r.set_id ? reservations.filter(x => x.set_id === r.set_id) : [r];
+    const totalAll = setItems.reduce((s, x) => s + (+x.total || 0), 0);
+    const kaucjaAll = setItems.reduce((s, x) => s + (+x.deposit_amount || 0), 0);
+    const serviceAll = Math.max(0, totalAll - kaucjaAll);
+    let s = `Dzień dobry!\nKalkulacja wynajmu${setItems.length > 1 ? " (zestaw)" : ""}:\n\n`;
+    if (setItems.length > 1) {
+      s += `Zestaw — sprzęt:\n`;
+      setItems.forEach(x => {
+        s += `• ${equipName(x.equipment_id)}\n`;
+      });
+    } else {
+      s += `Przedmiot: ${equipName(r.equipment_id)}\n`;
+    }
     s += `Termin: ${fmtDate(r.start_date)} – ${fmtDate(r.end_date)}\n`;
-    s += `Cena: ${fmtPLN(service)}`;
-    if (kaucja > 0) s += ` (+ zwrotna kaucja ${fmtPLN(kaucja)})`;
+    s += `Cena: ${fmtPLN(serviceAll)}`;
+    if (kaucjaAll > 0) s += ` (+ zwrotna kaucja ${fmtPLN(kaucjaAll)})`;
     s += `\n`;
-    if (r.notes && r.notes.trim()) s += `\nDodatkowe ustalenia: ${r.notes.trim()}\n`;
+    const allNotes = setItems.map(x => x.notes).filter(n => n && n.trim()).join(" · ");
+    if (allNotes) s += `\nDodatkowe ustalenia: ${allNotes}\n`;
     if (settings.payment_info && settings.payment_info.trim()) {
       s += `\nPłatność: ${settings.payment_info.trim()}\n`;
     }
@@ -3787,7 +3831,14 @@ function Reservations({
     style: {
       marginLeft: 6
     }
-  }, "z operatorem")), /*#__PURE__*/React.createElement("td", null, clientName(r.client_id)), /*#__PURE__*/React.createElement("td", null, fmtDate(r.start_date), "\u2013", fmtDate(r.end_date)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(Badge, {
+  }, "z operatorem"), r.set_id && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 3,
+      fontSize: 11,
+      color: "#6b46c1",
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCE6 Zestaw (", reservations.filter(x => x.set_id === r.set_id).length, " szt.)")), /*#__PURE__*/React.createElement("td", null, clientName(r.client_id)), /*#__PURE__*/React.createElement("td", null, fmtDate(r.start_date), "\u2013", fmtDate(r.end_date)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(Badge, {
     status: r.status
   })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("b", null, fmtPLN(r.total)), /*#__PURE__*/React.createElement("div", {
     className: "muted",
@@ -3846,7 +3897,18 @@ function Reservations({
   }, "SMS"), " ", /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => setPrintR(r)
-  }, "Umowa"), " ", /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCC3 Umowa"), " ", r.set_id && reservations.filter(x => x.set_id === r.set_id).length > 1 && /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => setPrintR({
+      ...r,
+      _set: true
+    }),
+    title: "Jedna umowa dla ca\u0142ego zestawu"
+  }, "\uD83D\uDCE6 Umowa zestawu"), " ", /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => addToSet(r),
+    title: "Dodaj kolejny sprz\u0119t do tej rezerwacji (zestaw)"
+  }, "\uD83D\uDCE6 +Do zestawu"), " ", /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => open(r)
   }, "Edytuj"), " ", /*#__PURE__*/React.createElement("button", {
@@ -4444,14 +4506,22 @@ function Reservations({
         marginTop: 10
       }
     }, "Otworzy si\u0119 Twoja aplikacja SMS / WhatsApp / poczty z gotow\u0105 tre\u015Bci\u0105. ", /*#__PURE__*/React.createElement("b", null, "Wysy\u0142k\u0119 potwierdzasz tam u siebie"), " (tre\u015B\u0107 jest tylko wczytana, nic jeszcze nie wys\u0142ane)."));
-  })(), printR && /*#__PURE__*/React.createElement(PrintContract, {
-    r: printR,
-    settings: settings,
-    addons: addons.filter(a => a.reservation_id === printR.id),
-    client: clients.find(c => c.id === printR.client_id),
-    equip: equipment.find(e => e.id === printR.equipment_id),
-    onClose: () => setPrintR(null)
-  }));
+  })(), printR && (() => {
+    const isSet = printR._set && printR.set_id;
+    const sItems = isSet ? reservations.filter(x => x.set_id === printR.set_id) : null;
+    const sAddons = isSet ? addons.filter(a => sItems.some(rr => rr.id === a.reservation_id)) : null;
+    return /*#__PURE__*/React.createElement(PrintContract, {
+      r: printR,
+      settings: settings,
+      addons: addons.filter(a => a.reservation_id === printR.id),
+      client: clients.find(c => c.id === printR.client_id),
+      equip: equipment.find(e => e.id === printR.equipment_id),
+      setItems: sItems,
+      equipById: id => equipment.find(e => e.id === id),
+      allSetAddons: sAddons,
+      onClose: () => setPrintR(null)
+    });
+  })());
 }
 
 /* ============ UMOWA / FAKTURA DO DRUKU ============ */
@@ -4533,22 +4603,49 @@ function PrintContract({
   addons,
   client,
   equip,
-  onClose
+  onClose,
+  setItems,
+  equipById,
+  allSetAddons
 }) {
   useEffect(() => {
     const t = setTimeout(() => window.print(), 350);
     return () => clearTimeout(t);
   }, []);
-  const aSum = addons.reduce((s, x) => s + (+x.price || 0) * (+x.quantity || 1), 0);
+  const isSet = setItems && setItems.length > 1;
+  const items = isSet ? setItems : [r];
+  // Sumy całego zestawu (lub pojedynczego item-u):
+  const totalAll = items.reduce((s, x) => s + (+x.total || 0), 0);
+  const rentalAll = items.reduce((s, x) => s + (+x.rental_cost || 0), 0);
+  const transportAll = items.reduce((s, x) => s + (+x.transport_cost || 0), 0);
+  const depositAll = items.reduce((s, x) => s + (+x.deposit_amount || 0), 0);
+  const addonsAll = isSet ? allSetAddons || [] : addons || [];
+  const aSum = addonsAll.reduce((s, x) => s + (+x.price || 0) * (+x.quantity || 1), 0);
+  const itemNames = isSet ? items.map(x => (equipById ? (equipById(x.equipment_id) || {}).name : "") || "—").join(", ") : equip ? equip.name : "—";
+  const allNotes = items.map(x => x.notes).filter(n => n && n.trim()).join(" · ");
+  const bookingDep = +r.booking_deposit_amount || +settings.booking_deposit || 200;
   const customTpl = settings.contract_template && settings.contract_template.trim();
-  const filled = customTpl ? fillContract(settings.contract_template, buildContractData(r, client, equip, settings, addons)) : "";
+  // dla zestawu — podstaw sumy / połączone nazwy do wzoru umowy
+  const dataR = isSet ? {
+    ...r,
+    rental_cost: rentalAll,
+    transport_cost: transportAll,
+    deposit_amount: depositAll,
+    total: totalAll,
+    notes: allNotes
+  } : r;
+  const dataEquip = isSet ? {
+    name: itemNames,
+    category: ""
+  } : equip;
+  const filled = customTpl ? fillContract(settings.contract_template, buildContractData(dataR, client, dataEquip, settings, addonsAll)) : "";
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "overlay no-print",
     onClick: onClose
   }, /*#__PURE__*/React.createElement("div", {
     className: "modal",
     onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("h2", null, "Umowa / zlecenie"), /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement("h2", null, "Umowa / zlecenie", isSet ? " (zestaw)" : ""), /*#__PURE__*/React.createElement("p", {
     className: "muted",
     style: {
       fontSize: 13.5
@@ -4615,7 +4712,7 @@ function PrintContract({
       margin: "18px 0 6px",
       fontSize: 18
     }
-  }, "Umowa wynajmu / zlecenie"), /*#__PURE__*/React.createElement("table", {
+  }, "Umowa wynajmu / zlecenie", isSet ? " — zestaw" : ""), /*#__PURE__*/React.createElement("table", {
     style: {
       marginBottom: 14
     }
@@ -4632,7 +4729,7 @@ function PrintContract({
     style: {
       color: "#666"
     }
-  }, "Przedmiot"), /*#__PURE__*/React.createElement("td", null, equip ? equip.name : "—", r.kind === "lift" ? " (usługa z operatorem)" : "")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, isSet ? "Przedmioty zestawu" : "Przedmiot"), /*#__PURE__*/React.createElement("td", null, itemNames, !isSet && r.kind === "lift" ? " (usługa z operatorem)" : "")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     style: {
       color: "#666"
     }
@@ -4640,11 +4737,11 @@ function PrintContract({
     style: {
       color: "#666"
     }
-  }, "Adres dostawy"), /*#__PURE__*/React.createElement("td", null, r.delivery_address)), r.kind === "lift" && r.lift_address && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, "Adres dostawy"), /*#__PURE__*/React.createElement("td", null, r.delivery_address)), !isSet && r.kind === "lift" && r.lift_address && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     style: {
       color: "#666"
     }
-  }, "Adres prac"), /*#__PURE__*/React.createElement("td", null, r.lift_address)), r.kind === "lift" && r.operator && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, "Adres prac"), /*#__PURE__*/React.createElement("td", null, r.lift_address)), !isSet && r.kind === "lift" && r.operator && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     style: {
       color: "#666"
     }
@@ -4665,7 +4762,18 @@ function PrintContract({
       textAlign: "right",
       padding: "8px 10px"
     }
-  }, "Kwota"))), /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, "Kwota"))), /*#__PURE__*/React.createElement("tbody", null, isSet ? items.map(x => /*#__PURE__*/React.createElement("tr", {
+    key: x.id
+  }, /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: "7px 10px"
+    }
+  }, "Wynajem: ", (equipById ? (equipById(x.equipment_id) || {}).name : "") || "—"), /*#__PURE__*/React.createElement("td", {
+    style: {
+      textAlign: "right",
+      padding: "7px 10px"
+    }
+  }, fmtPLN(x.rental_cost)))) : /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     style: {
       padding: "7px 10px"
     }
@@ -4674,7 +4782,7 @@ function PrintContract({
       textAlign: "right",
       padding: "7px 10px"
     }
-  }, fmtPLN(r.rental_cost))), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, fmtPLN(r.rental_cost))), transportAll > 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     style: {
       padding: "7px 10px"
     }
@@ -4683,8 +4791,8 @@ function PrintContract({
       textAlign: "right",
       padding: "7px 10px"
     }
-  }, fmtPLN(r.transport_cost))), addons.map((a, i) => /*#__PURE__*/React.createElement("tr", {
-    key: i
+  }, fmtPLN(transportAll))), addonsAll.map((a, i) => /*#__PURE__*/React.createElement("tr", {
+    key: "a" + i
   }, /*#__PURE__*/React.createElement("td", {
     style: {
       padding: "7px 10px"
@@ -4694,7 +4802,7 @@ function PrintContract({
       textAlign: "right",
       padding: "7px 10px"
     }
-  }, fmtPLN((+a.price || 0) * (+a.quantity || 1))))), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, fmtPLN((+a.price || 0) * (+a.quantity || 1))))), depositAll > 0 && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     style: {
       padding: "7px 10px"
     }
@@ -4703,7 +4811,7 @@ function PrintContract({
       textAlign: "right",
       padding: "7px 10px"
     }
-  }, fmtPLN(r.deposit_amount))), /*#__PURE__*/React.createElement("tr", {
+  }, fmtPLN(depositAll))), /*#__PURE__*/React.createElement("tr", {
     style: {
       borderTop: "2px solid var(--green-d)",
       fontWeight: "bold",
@@ -4719,7 +4827,7 @@ function PrintContract({
       padding: "9px 10px",
       color: "var(--green-d)"
     }
-  }, fmtPLN(r.total))), r.booking_deposit_paid && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, fmtPLN(totalAll))), r.booking_deposit_paid && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     style: {
       padding: "7px 10px",
       color: "#1b5e20"
@@ -4730,7 +4838,7 @@ function PrintContract({
       padding: "7px 10px",
       color: "#1b5e20"
     }
-  }, "\u2212", fmtPLN(+r.booking_deposit_amount || +settings.booking_deposit || 200))), /*#__PURE__*/React.createElement("tr", {
+  }, "\u2212", fmtPLN(bookingDep))), /*#__PURE__*/React.createElement("tr", {
     style: {
       fontWeight: "bold"
     }
@@ -4743,12 +4851,12 @@ function PrintContract({
       textAlign: "right",
       padding: "7px 10px"
     }
-  }, fmtPLN(Math.max(0, (+r.total || 0) - (+r.booking_deposit_amount || +settings.booking_deposit || 200)))))))), r.notes && /*#__PURE__*/React.createElement("p", {
+  }, fmtPLN(Math.max(0, totalAll - bookingDep))))))), allNotes && /*#__PURE__*/React.createElement("p", {
     style: {
       marginTop: 12,
       fontSize: 13
     }
-  }, /*#__PURE__*/React.createElement("b", null, "Uwagi:"), " ", r.notes)), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("b", null, "Uwagi:"), " ", allNotes)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
@@ -5462,7 +5570,7 @@ function Offers({
       grand: revenue + deposit
     };
   }, [f, eq, settings]);
-  const open = o => {
+  const open = (o, preset) => {
     if (o) {
       const oa = offerAddons.filter(a => a.offer_id === o.id).map(a => ({
         name: a.name,
@@ -5488,6 +5596,7 @@ function Offers({
         notes: o.notes || "",
         rental_override: o.rental_cost != null ? String(o.rental_cost) : "",
         booking_deposit_amount: o.booking_deposit_amount != null ? String(o.booking_deposit_amount) : "",
+        set_id: o.set_id || "",
         _addons: oa
       });
       setEditing(o.id);
@@ -5496,10 +5605,41 @@ function Offers({
       d.setDate(d.getDate() + 14);
       setF({
         ...blank,
-        valid_until: d.toISOString().slice(0, 10)
+        valid_until: d.toISOString().slice(0, 10),
+        ...(preset || {})
       });
       setEditing("new");
     }
+  };
+
+  // Łączenie w zestaw: tworzy nową ofertę powiązaną z istniejącą wspólnym set_id
+  const addToSet = async o => {
+    let sid = o.set_id;
+    if (!sid) {
+      sid = generateSetId();
+      try {
+        await sbUpdate("offers", "id", o.id, {
+          set_id: sid
+        });
+      } catch (ex) {
+        setErr(String(ex.message || ex));
+        return;
+      }
+    }
+    open(null, {
+      client_id: o.client_id || "",
+      kind: o.kind || "rental",
+      start_date: toInput(o.start_date),
+      end_date: toInput(o.end_date),
+      valid_until: o.valid_until ? o.valid_until.slice(0, 10) : "",
+      delivery_address: o.delivery_address || "",
+      notes: o.notes || "",
+      booking_deposit_amount: o.booking_deposit_amount != null ? String(o.booking_deposit_amount) : "",
+      booking_deposit_paid: !!o.booking_deposit_paid,
+      booking_deposit_paid_date: o.booking_deposit_paid_date || null,
+      set_id: sid
+    });
+    flash("Ten sam klient/terminy/adres. Wybierz drugi sprzęt do zestawu i zapisz.");
   };
   useEffect(() => {
     if (editing === "new" && eq) {
@@ -5564,7 +5704,8 @@ function Offers({
         delivery_address: f.delivery_address,
         notes: f.notes,
         valid_until: f.valid_until || null,
-        booking_deposit_amount: f.booking_deposit_amount === "" || f.booking_deposit_amount == null ? null : +f.booking_deposit_amount
+        booking_deposit_amount: f.booking_deposit_amount === "" || f.booking_deposit_amount == null ? null : +f.booking_deposit_amount,
+        set_id: f.set_id || null
       };
       let oId = editing;
       if (editing === "new") {
@@ -5599,44 +5740,49 @@ function Offers({
     }
   };
   const accept = async o => {
-    if (!confirm("Przekształcić ofertę w rezerwację (status: zarezerwowano)?")) return;
+    const setItems = o.set_id ? offers.filter(x => x.set_id === o.set_id && x.status !== "accepted") : [o];
+    const setMsg = setItems.length > 1 ? `Akceptować WSZYSTKIE ${setItems.length} oferty z tego zestawu i utworzyć dla nich rezerwacje?` : "Przekształcić ofertę w rezerwację (status: zarezerwowano)?";
+    if (!confirm(setMsg)) return;
     try {
-      const rBody = {
-        equipment_id: o.equipment_id || null,
-        client_id: o.client_id || null,
-        kind: o.kind,
-        start_date: o.start_date,
-        end_date: o.end_date,
-        status: "confirmed",
-        distance_km: o.distance_km || 0,
-        transport_cost: o.transport_cost || 0,
-        rental_cost: o.rental_cost || 0,
-        deposit_amount: o.deposit_amount || 0,
-        total: o.total || 0,
-        lift_address: o.lift_address,
-        lift_scope: o.lift_scope,
-        operator: o.operator,
-        delivery_address: o.delivery_address,
-        notes: o.notes,
-        rate_mode: o.rate_mode,
-        rate_qty: o.rate_qty,
-        booking_deposit_paid: !!o.booking_deposit_paid,
-        booking_deposit_paid_date: o.booking_deposit_paid_date || null,
-        booking_deposit_amount: o.booking_deposit_amount != null ? o.booking_deposit_amount : null
-      };
-      const r = await sbInsert("reservations", rBody);
-      const rId = r[0].id;
-      for (const a of offerAddons.filter(x => x.offer_id === o.id)) await sbInsert("reservation_addons", {
-        reservation_id: rId,
-        name: a.name,
-        price: a.price,
-        quantity: a.quantity
-      });
-      await sbUpdate("offers", "id", o.id, {
-        status: "accepted",
-        converted_reservation_id: rId
-      });
-      flash("Oferta zaakceptowana → utworzono rezerwację.");
+      for (const oi of setItems) {
+        const rBody = {
+          equipment_id: oi.equipment_id || null,
+          client_id: oi.client_id || null,
+          kind: oi.kind,
+          start_date: oi.start_date,
+          end_date: oi.end_date,
+          status: "confirmed",
+          distance_km: oi.distance_km || 0,
+          transport_cost: oi.transport_cost || 0,
+          rental_cost: oi.rental_cost || 0,
+          deposit_amount: oi.deposit_amount || 0,
+          total: oi.total || 0,
+          lift_address: oi.lift_address,
+          lift_scope: oi.lift_scope,
+          operator: oi.operator,
+          delivery_address: oi.delivery_address,
+          notes: oi.notes,
+          rate_mode: oi.rate_mode,
+          rate_qty: oi.rate_qty,
+          booking_deposit_paid: !!oi.booking_deposit_paid,
+          booking_deposit_paid_date: oi.booking_deposit_paid_date || null,
+          booking_deposit_amount: oi.booking_deposit_amount != null ? oi.booking_deposit_amount : null,
+          set_id: oi.set_id || null
+        };
+        const r = await sbInsert("reservations", rBody);
+        const rId = r[0].id;
+        for (const a of offerAddons.filter(x => x.offer_id === oi.id)) await sbInsert("reservation_addons", {
+          reservation_id: rId,
+          name: a.name,
+          price: a.price,
+          quantity: a.quantity
+        });
+        await sbUpdate("offers", "id", oi.id, {
+          status: "accepted",
+          converted_reservation_id: rId
+        });
+      }
+      flash(setItems.length > 1 ? `Zaakceptowano zestaw — utworzono ${setItems.length} rezerwacji.` : "Oferta zaakceptowana → utworzono rezerwację.");
       reload();
     } catch (ex) {
       setErr(String(ex.message || ex));
@@ -5666,17 +5812,27 @@ function Offers({
     }
   };
   const offerText = o => {
-    const a = offerAddons.filter(x => x.offer_id === o.id);
-    const aSum = a.reduce((s, x) => s + (+x.price || 0) * (+x.quantity || 1), 0);
-    const kaucja = +o.deposit_amount || 0;
-    const service = Math.max(0, (+o.total || 0) - kaucja);
-    let s = `Dzień dobry!\nPrzesyłamy wycenę nr ${fmtOfferNo(o)}:\n\n`;
-    s += `Przedmiot: ${equipName(o.equipment_id)}\n`;
+    // gdy oferta jest częścią zestawu — pokaż wszystkie sprzęty z zestawu
+    const setItems = o.set_id ? offers.filter(x => x.set_id === o.set_id) : [o];
+    const totalAll = setItems.reduce((s, x) => s + (+x.total || 0), 0);
+    const kaucjaAll = setItems.reduce((s, x) => s + (+x.deposit_amount || 0), 0);
+    const serviceAll = Math.max(0, totalAll - kaucjaAll);
+    let s = `Dzień dobry!\nPrzesyłamy wycenę nr ${fmtOfferNo(o)}${setItems.length > 1 ? " (zestaw)" : ""}:\n\n`;
+    if (setItems.length > 1) {
+      s += `Zestaw — sprzęt:\n`;
+      setItems.forEach(x => {
+        s += `• ${equipName(x.equipment_id)}\n`;
+      });
+    } else {
+      s += `Przedmiot: ${equipName(o.equipment_id)}\n`;
+    }
     s += `Termin: ${fmtDate(o.start_date)} – ${fmtDate(o.end_date)}\n`;
-    s += `Cena: ${fmtPLN(service)}`;
-    if (kaucja > 0) s += ` (+ zwrotna kaucja ${fmtPLN(kaucja)})`;
+    s += `Cena: ${fmtPLN(serviceAll)}`;
+    if (kaucjaAll > 0) s += ` (+ zwrotna kaucja ${fmtPLN(kaucjaAll)})`;
     s += `\n`;
-    if (o.notes && o.notes.trim()) s += `\nDodatkowe ustalenia: ${o.notes.trim()}\n`;
+    // notatki — zbierz unikalne ze wszystkich elementów zestawu
+    const allNotes = setItems.map(x => x.notes).filter(n => n && n.trim()).join(" · ");
+    if (allNotes) s += `\nDodatkowe ustalenia: ${allNotes}\n`;
     if (o.valid_until) s += `\nOferta ważna do: ${fmtDate(o.valid_until)}.\n`;
     const dep = +o.booking_deposit_amount || +settings.booking_deposit || 200;
     if (o.booking_deposit_paid) {
@@ -5733,7 +5889,14 @@ function Offers({
     style: {
       marginLeft: 6
     }
-  }, "operator")), /*#__PURE__*/React.createElement("td", null, fmtDate(o.start_date), "\u2013", fmtDate(o.end_date)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("b", null, fmtPLN(o.total))), /*#__PURE__*/React.createElement("td", null, o.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
+  }, "operator"), o.set_id && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 3,
+      fontSize: 11,
+      color: "#6b46c1",
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCE6 Zestaw (", offers.filter(x => x.set_id === o.set_id).length, " szt.)")), /*#__PURE__*/React.createElement("td", null, fmtDate(o.start_date), "\u2013", fmtDate(o.end_date)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("b", null, fmtPLN(o.total))), /*#__PURE__*/React.createElement("td", null, o.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => toggleDeposit(o),
     title: "Wpłacono " + fmtDate(o.booking_deposit_paid_date) + " — kliknij, by cofnąć",
@@ -5759,7 +5922,14 @@ function Offers({
   }, "\uD83D\uDCC4 Oferta"), " ", /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => setPrintC(o)
-  }, "\uD83D\uDCC3 Umowa"), " ", /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCC3 Umowa"), " ", o.set_id && offers.filter(x => x.set_id === o.set_id).length > 1 && /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => setPrintC({
+      ...o,
+      _set: true
+    }),
+    title: "Jedna umowa dla ca\u0142ego zestawu"
+  }, "\uD83D\uDCE6 Umowa zestawu"), " ", /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => setShare({
       o,
@@ -5779,6 +5949,10 @@ function Offers({
     onClick: () => reopen(o),
     title: "Wr\xF3\u0107 do statusu Wys\u0142ana"
   }, "\u21A9 Wzn\xF3w"), " ", /*#__PURE__*/React.createElement("button", {
+    className: "btn ghost sm",
+    onClick: () => addToSet(o),
+    title: "Dodaj kolejny sprz\u0119t do tej oferty (zestaw)"
+  }, "\uD83D\uDCE6 +Do zestawu"), " ", /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => open(o)
   }, "Edytuj"), " ", /*#__PURE__*/React.createElement("button", {
@@ -6110,14 +6284,22 @@ function Offers({
     client: clients.find(c => c.id === printO.client_id),
     equip: equipment.find(e => e.id === printO.equipment_id),
     onClose: () => setPrintO(null)
-  }), printC && /*#__PURE__*/React.createElement(PrintContract, {
-    r: printC,
-    settings: settings,
-    addons: offerAddons.filter(a => a.offer_id === printC.id),
-    client: clients.find(c => c.id === printC.client_id),
-    equip: equipment.find(e => e.id === printC.equipment_id),
-    onClose: () => setPrintC(null)
-  }));
+  }), printC && (() => {
+    const isSet = printC._set && printC.set_id;
+    const sItems = isSet ? offers.filter(x => x.set_id === printC.set_id) : null;
+    const sAddons = isSet ? offerAddons.filter(a => sItems.some(o => o.id === a.offer_id)) : null;
+    return /*#__PURE__*/React.createElement(PrintContract, {
+      r: printC,
+      settings: settings,
+      addons: offerAddons.filter(a => a.offer_id === printC.id),
+      client: clients.find(c => c.id === printC.client_id),
+      equip: equipment.find(e => e.id === printC.equipment_id),
+      setItems: sItems,
+      equipById: id => equipment.find(e => e.id === id),
+      allSetAddons: sAddons,
+      onClose: () => setPrintC(null)
+    });
+  })());
 }
 function PrintOffer({
   o,
