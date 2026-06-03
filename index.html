@@ -4303,7 +4303,7 @@ function Reservations({
     className: "calc-box"
   }, /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
-  }, /*#__PURE__*/React.createElement("span", null, "Wynajem (", f.rate_qty, "\xD7 ", f.rate_mode === "hour" ? "godz." : f.rate_mode === "weekend" ? "weekend" : "doba", ")", calc.isCustom && /*#__PURE__*/React.createElement("small", {
+  }, /*#__PURE__*/React.createElement("span", null, "Wynajem: ", /*#__PURE__*/React.createElement("b", null, equipName(f.equipment_id) || "—"), " (", f.rate_qty, "\xD7 ", f.rate_mode === "hour" ? "godz." : f.rate_mode === "weekend" ? "weekend" : "doba", ")", calc.isCustom && /*#__PURE__*/React.createElement("small", {
     style: {
       color: "#1b5e20",
       fontWeight: 600,
@@ -4333,13 +4333,34 @@ function Reservations({
     style: {
       fontSize: 13
     }
-  }, "z\u0142"))), /*#__PURE__*/React.createElement("div", {
+  }, "z\u0142"))), (f._extras || []).map((item, idx) => {
+    const rc = rentalFor(item);
+    const e = equipment.find(eq => eq.id === item.equipment_id);
+    return /*#__PURE__*/React.createElement("div", {
+      key: "ex" + idx,
+      className: "calc-line",
+      style: {
+        paddingLeft: 6,
+        fontSize: 13
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "Wynajem: ", /*#__PURE__*/React.createElement("b", null, e ? e.name : "— wybierz —"), " (", item.rate_qty, "\xD7 ", item.rate_mode === "hour" ? "godz." : item.rate_mode === "weekend" ? "weekend" : "doba", ")"), /*#__PURE__*/React.createElement("span", null, fmtPLN(rc.rental)));
+  }), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
   }, /*#__PURE__*/React.createElement("span", null, "Transport (", calc.billKm, " km p\u0142atne)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.transport))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
   }, /*#__PURE__*/React.createElement("span", null, "Dodatki"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.addonsSum))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
-  }, /*#__PURE__*/React.createElement("span", null, "Kaucja (zwrotna)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.deposit))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Kaucja (zwrotna): ", /*#__PURE__*/React.createElement("b", null, equipName(f.equipment_id) || "—")), /*#__PURE__*/React.createElement("span", null, fmtPLN(+f.deposit_amount || 0))), (f._extras || []).map((item, idx) => {
+    const e = equipment.find(eq => eq.id === item.equipment_id);
+    return +item.deposit_amount > 0 ? /*#__PURE__*/React.createElement("div", {
+      key: "dx" + idx,
+      className: "calc-line",
+      style: {
+        paddingLeft: 6,
+        fontSize: 13
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "Kaucja (zwrotna): ", /*#__PURE__*/React.createElement("b", null, e ? e.name : "— wybierz —")), /*#__PURE__*/React.createElement("span", null, fmtPLN(+item.deposit_amount || 0))) : null;
+  }), /*#__PURE__*/React.createElement("div", {
     className: "calc-total"
   }, /*#__PURE__*/React.createElement("span", null, "RAZEM (do zap\u0142aty)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.grand))), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -6476,7 +6497,7 @@ function Offers({
     className: "calc-box"
   }, /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
-  }, /*#__PURE__*/React.createElement("span", null, "Wynajem (", f.rate_qty, "\xD7 ", f.rate_mode === "hour" ? "godz." : f.rate_mode === "weekend" ? "weekend" : "doba", ")", calc.isCustom && /*#__PURE__*/React.createElement("small", {
+  }, /*#__PURE__*/React.createElement("span", null, "Wynajem: ", /*#__PURE__*/React.createElement("b", null, equipName(f.equipment_id) || "—"), " (", f.rate_qty, "\xD7 ", f.rate_mode === "hour" ? "godz." : f.rate_mode === "weekend" ? "weekend" : "doba", ")", calc.isCustom && /*#__PURE__*/React.createElement("small", {
     style: {
       color: "#1b5e20",
       fontWeight: 600,
@@ -6506,13 +6527,34 @@ function Offers({
     style: {
       fontSize: 13
     }
-  }, "z\u0142"))), /*#__PURE__*/React.createElement("div", {
+  }, "z\u0142"))), (f._extras || []).map((item, idx) => {
+    const rc = rentalFor(item);
+    const e = equipment.find(eq => eq.id === item.equipment_id);
+    return /*#__PURE__*/React.createElement("div", {
+      key: "ex" + idx,
+      className: "calc-line",
+      style: {
+        paddingLeft: 6,
+        fontSize: 13
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "Wynajem: ", /*#__PURE__*/React.createElement("b", null, e ? e.name : "— wybierz —"), " (", item.rate_qty, "\xD7 ", item.rate_mode === "hour" ? "godz." : item.rate_mode === "weekend" ? "weekend" : "doba", ")"), /*#__PURE__*/React.createElement("span", null, fmtPLN(rc.rental)));
+  }), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
   }, /*#__PURE__*/React.createElement("span", null, "Transport (", calc.billKm, " km p\u0142atne)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.transport))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
   }, /*#__PURE__*/React.createElement("span", null, "Dodatki"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.addonsSum))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
-  }, /*#__PURE__*/React.createElement("span", null, "Kaucja (zwrotna)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.deposit))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Kaucja (zwrotna): ", /*#__PURE__*/React.createElement("b", null, equipName(f.equipment_id) || "—")), /*#__PURE__*/React.createElement("span", null, fmtPLN(+f.deposit_amount || 0))), (f._extras || []).map((item, idx) => {
+    const e = equipment.find(eq => eq.id === item.equipment_id);
+    return +item.deposit_amount > 0 ? /*#__PURE__*/React.createElement("div", {
+      key: "dx" + idx,
+      className: "calc-line",
+      style: {
+        paddingLeft: 6,
+        fontSize: 13
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "Kaucja (zwrotna): ", /*#__PURE__*/React.createElement("b", null, e ? e.name : "— wybierz —")), /*#__PURE__*/React.createElement("span", null, fmtPLN(+item.deposit_amount || 0))) : null;
+  }), /*#__PURE__*/React.createElement("div", {
     className: "calc-total"
   }, /*#__PURE__*/React.createElement("span", null, "RAZEM (do zap\u0142aty)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.grand))), /*#__PURE__*/React.createElement("div", {
     style: {
