@@ -1679,7 +1679,18 @@ function Analytics({
     const a = offerAddons.filter(x => x.offer_id === o.id).reduce((ss, x) => ss + (+x.price || 0) * (+x.quantity || 1), 0);
     return s + sumItems(o, 'rental_cost') + (+o.transport_cost || 0) + a;
   }, 0);
-  const futureBooked = buckets.filter(b => b.isFuture).reduce((s, b) => s + b.revenue, 0);
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+  const in3MonthsDate = new Date(todayDate);
+  in3MonthsDate.setMonth(in3MonthsDate.getMonth() + 3);
+  const futureBooked = reservations.filter(r => {
+    if (!r.start_date) return false;
+    const d = new Date(r.start_date);
+    return d >= todayDate && d <= in3MonthsDate;
+  }).reduce((s, r) => {
+    const aSum = addons.filter(a => a.reservation_id === r.id).reduce((ss, a) => ss + (+a.price || 0) * (+a.quantity || 1), 0);
+    return s + sumItems(r, 'rental_cost') + (+r.transport_cost || 0) + aSum;
+  }, 0);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "topbar"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", null, "Analiza"), /*#__PURE__*/React.createElement("p", null, "Przych\xF3d, koszt, mar\u017Ca \u2014 historia i prognoza"))), /*#__PURE__*/React.createElement("div", {
@@ -2925,7 +2936,20 @@ function Dashboard({
       padding: "8px 0",
       borderBottom: "1px solid var(--line)"
     }
-  }, /*#__PURE__*/React.createElement("span", null, equipName(r.equipment_id), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", null, equipName(r.equipment_id), isSetOf(r) && /*#__PURE__*/React.createElement("span", {
+    style: {
+      marginLeft: 6,
+      fontSize: 11,
+      color: "#6b46c1",
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCE6 +", r.extra_items.length), /*#__PURE__*/React.createElement("br", null), isSetOf(r) && /*#__PURE__*/React.createElement("span", {
+    className: "muted",
+    style: {
+      fontSize: 12,
+      color: "#6b46c1"
+    }
+  }, "Zestaw: ", r.extra_items.map(x => equipName(x.equipment_id)).join(", "), /*#__PURE__*/React.createElement("br", null)), /*#__PURE__*/React.createElement("span", {
     className: "muted",
     style: {
       fontSize: 12.5
@@ -5587,10 +5611,13 @@ function CalendarView({
     }, "+", events.length - 3)), events.slice(0, 3).map(r => {
       const st = eventStyle(r);
       const loc = shortLoc(r.delivery_address);
+      const setSize = isSetOf(r) ? 1 + r.extra_items.length : 1;
+      const namesArr = isSetOf(r) ? [equipName(r.equipment_id), ...r.extra_items.map(x => equipName(x.equipment_id))] : [equipName(r.equipment_id)];
+      const labelEq = namesArr.map(n => n.split(" ")[0]).join("+");
       return /*#__PURE__*/React.createElement("div", {
         key: (r._kind || "res") + "-" + r.id,
         onClick: () => setSel(r),
-        title: (r._kind === "offer" ? "Oferta wysłana: " : "") + equipName(r.equipment_id) + " — " + clientName(r.client_id) + (loc ? " · " + loc : ""),
+        title: (r._kind === "offer" ? "Oferta wysłana: " : "") + (setSize > 1 ? "Zestaw (" + setSize + "): " + namesArr.join(" + ") : equipName(r.equipment_id)) + " — " + clientName(r.client_id) + (loc ? " · " + loc : ""),
         style: {
           background: st.background,
           color: st.color,
@@ -5607,7 +5634,7 @@ function CalendarView({
           lineHeight: 1.3,
           fontWeight: 500
         }
-      }, st.prefix, " ", equipName(r.equipment_id).split(" ")[0], " \xB7 ", clientName(r.client_id).split(" ")[0], loc ? " · " + loc : "");
+      }, st.prefix, " ", setSize > 1 ? "📦 " : "", labelEq, " \xB7 ", clientName(r.client_id).split(" ")[0], loc ? " · " + loc : "");
     }));
   })), /*#__PURE__*/React.createElement("div", {
     style: {
