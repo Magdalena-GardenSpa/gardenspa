@@ -5947,9 +5947,15 @@ const OST = {
   }
 };
 function fmtOfferNo(o) {
-  if (!o || !o.offer_no) return "OF/—";
-  const y = o.created_at ? new Date(o.created_at).getFullYear() : new Date().getFullYear();
-  return `OF/${y}/${String(o.offer_no).padStart(4, "0")}`;
+  if (!o || !o.offer_no) return "—";
+  const raw = String(o.offer_no).trim();
+  // Wyciągnij sam numer (ostatnia grupa cyfr)
+  const mNum = raw.match(/(\d+)\s*$/);
+  const num = mNum ? parseInt(mNum[1], 10) : 0;
+  // Rok — szukamy tylko jako "4-cyfry/" (np. "OF/2026/0025"), inaczej z created_at
+  const mYr = raw.match(/(\d{4})\//);
+  const year = mYr ? mYr[1] : o.created_at ? String(new Date(o.created_at).getFullYear()) : String(new Date().getFullYear());
+  return `OF/${year.slice(-2)}/${num}`;
 }
 function waPhone(p) {
   if (!p) return "";
