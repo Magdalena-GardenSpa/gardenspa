@@ -551,6 +551,14 @@ function getAllItems(r) {
 function isSetOf(r) {
   return r && r.extra_items && Array.isArray(r.extra_items) && r.extra_items.length > 0;
 }
+// Sumuje pole (np. rental_cost, deposit_amount) z głównego sprzętu + wszystkich extras
+function sumItems(r, field) {
+  let total = +r[field] || 0;
+  if (r && r.extra_items && Array.isArray(r.extra_items)) {
+    for (const e of r.extra_items) total += +e[field] || 0;
+  }
+  return total;
+}
 function authHeaders() {
   const token = authSession && authSession.access_token ? authSession.access_token : SUPABASE_KEY;
   return {
@@ -792,11 +800,11 @@ function computeAlerts(reservations, offers, clientNameFn, equipNameFn) {
         tab: "reservations"
       });
     }
-    if ((r.status === "returned" || r.status === "settled") && !r.deposit_returned && +r.deposit_amount > 0) alerts.push({
+    if ((r.status === "returned" || r.status === "settled") && !r.deposit_returned && sumItems(r, 'deposit_amount') > 0) alerts.push({
       type: "deposit",
       priority: "normal",
       icon: "💰",
-      text: `Niezwrócona kaucja ${(+r.deposit_amount).toLocaleString("pl-PL")} zł: ${clientNameFn(r.client_id)} (${equipNameFn(r.equipment_id)})`,
+      text: `Niezwrócona kaucja ${sumItems(r, 'deposit_amount').toLocaleString("pl-PL")} zł: ${clientNameFn(r.client_id)} (${equipNameFn(r.equipment_id)})`,
       tab: "reservations"
     });
   }
@@ -1650,7 +1658,7 @@ function Analytics({
     });
     const revenue = inMonth.reduce((s, r) => {
       const aSum = addons.filter(a => a.reservation_id === r.id).reduce((ss, a) => ss + (+a.price || 0) * (+a.quantity || 1), 0);
-      return s + (+r.rental_cost || 0) + (+r.transport_cost || 0) + aSum;
+      return s + sumItems(r, 'rental_cost') + (+r.transport_cost || 0) + aSum;
     }, 0);
     const cost = inMonth.reduce((s, r) => s + (+r.cost || 0), 0);
     return {
@@ -1669,7 +1677,7 @@ function Analytics({
   const pipelineOffers = offers.filter(o => o.status === "draft" || o.status === "sent");
   const pipelineValue = pipelineOffers.reduce((s, o) => {
     const a = offerAddons.filter(x => x.offer_id === o.id).reduce((ss, x) => ss + (+x.price || 0) * (+x.quantity || 1), 0);
-    return s + (+o.rental_cost || 0) + (+o.transport_cost || 0) + a;
+    return s + sumItems(o, 'rental_cost') + (+o.transport_cost || 0) + a;
   }, 0);
   const futureBooked = buckets.filter(b => b.isFuture).reduce((s, b) => s + b.revenue, 0);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
@@ -1790,12 +1798,19 @@ function Analytics({
     addons: addons
   }), (() => {
     const roi = equipment.map(e => {
-      const eRes = reservations.filter(r => r.equipment_id === e.id);
+      // Znajdź WSZYSTKIE rezerwacje, w których pojawia się ten sprzęt (jako główny LUB extra)
+      const eRes = reservations.filter(r => r.equipment_id === e.id || (r.extra_items || []).some(x => x.equipment_id === e.id));
       const revenue = eRes.reduce((s, r) => {
-        const aSum = addons.filter(a => a.reservation_id === r.id).reduce((ss, a) => ss + (+a.price || 0) * (+a.quantity || 1), 0);
-        return s + (+r.rental_cost || 0) + (+r.transport_cost || 0) + aSum;
+        // Przychód: rental_cost TYLKO tego sprzętu (z głównego LUB extra-pozycji odpowiadającej e.id)
+        let myRental = 0;
+        if (r.equipment_id === e.id) myRental += +r.rental_cost || 0;
+        for (const ex of r.extra_items || []) {
+          if (ex.equipment_id === e.id) myRental += +ex.rental_cost || 0;
+        }
+        return s + myRental;
       }, 0);
-      const opCost = eRes.reduce((s, r) => s + (+r.cost || 0), 0);
+      // Koszt własny: liczymy tylko gdy sprzęt jest głównym (żeby nie podwajać w zestawach)
+      const opCost = eRes.filter(r => r.equipment_id === e.id).reduce((s, r) => s + (+r.cost || 0), 0);
       const margin = revenue - opCost;
       const invested = +e.purchase_cost || 0;
       const roiPct = invested > 0 ? Math.round(margin / invested * 100) : null;
@@ -2634,7 +2649,7 @@ function PeriodSummary({
       };
       map[key].n++;
       const aSum = addons.filter(a => a.reservation_id === r.id).reduce((s, a) => s + (+a.price || 0) * (+a.quantity || 1), 0);
-      map[key].revenue += (+r.rental_cost || 0) + (+r.transport_cost || 0) + aSum;
+      map[key].revenue += sumItems(r, 'rental_cost') + (+r.transport_cost || 0) + aSum;
       map[key].cost += +r.cost || 0;
     }
     return Object.values(map).sort((a, b) => b.key - a.key);
@@ -2754,7 +2769,7 @@ function Dashboard({
   });
   const monthRev = monthly.reduce((s, r) => {
     const aSum = addons.filter(a => a.reservation_id === r.id).reduce((ss, a) => ss + (+a.price || 0) * (+a.quantity || 1), 0);
-    return s + (Number(r.rental_cost) || 0) + (Number(r.transport_cost) || 0) + aSum;
+    return s + sumItems(r, 'rental_cost') + (Number(r.transport_cost) || 0) + aSum;
   }, 0);
   const monthCost = monthly.reduce((s, r) => s + (Number(r.cost) || 0), 0);
   const monthMargin = monthRev - monthCost;
@@ -3038,12 +3053,15 @@ function Equipment({
     service: ["W serwisie", "b-red"]
   };
   const eqStats = e => {
-    const eRes = reservations.filter(r => r.equipment_id === e.id);
+    // Wszystkie rezerwacje, w których pojawia się ten sprzęt (główny lub extra)
+    const eRes = reservations.filter(r => r.equipment_id === e.id || (r.extra_items || []).some(x => x.equipment_id === e.id));
     const revenue = eRes.reduce((s, r) => {
-      const aSum = addons.filter(a => a.reservation_id === r.id).reduce((ss, a) => ss + (+a.price || 0) * (+a.quantity || 1), 0);
-      return s + (+r.rental_cost || 0) + (+r.transport_cost || 0) + aSum;
+      let myRental = 0;
+      if (r.equipment_id === e.id) myRental += +r.rental_cost || 0;
+      for (const ex of r.extra_items || []) if (ex.equipment_id === e.id) myRental += +ex.rental_cost || 0;
+      return s + myRental;
     }, 0);
-    const opCost = eRes.reduce((s, r) => s + (+r.cost || 0), 0);
+    const opCost = eRes.filter(r => r.equipment_id === e.id).reduce((s, r) => s + (+r.cost || 0), 0);
     const margin = revenue - opCost;
     const invested = +e.purchase_cost || 0;
     const roiPct = invested > 0 ? Math.round(margin / invested * 100) : null;
@@ -3501,7 +3519,7 @@ function Clients({
     }
   }, /*#__PURE__*/React.createElement(Badge, {
     status: r.status
-  }), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", null, fmtPLN((+r.rental_cost || 0) + (+r.transport_cost || 0)))))), reservations.filter(r => r.client_id === detail.id).length === 0 && /*#__PURE__*/React.createElement("p", {
+  }), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", null, fmtPLN(sumItems(r, 'rental_cost') + (+r.transport_cost || 0)))))), reservations.filter(r => r.client_id === detail.id).length === 0 && /*#__PURE__*/React.createElement("p", {
     className: "muted"
   }, "Brak rezerwacji.")), mass && (() => {
     const consentOnly = mass.recipients === "consent";
@@ -4142,7 +4160,7 @@ function Reservations({
     style: {
       fontSize: 11
     }
-  }, "w tym kaucja ", fmtPLN(r.deposit_amount))), /*#__PURE__*/React.createElement("td", null, r.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
+  }, "w tym kaucja ", fmtPLN(sumItems(r, "deposit_amount")))), /*#__PURE__*/React.createElement("td", null, r.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => toggleDeposit(r),
     title: "Wpłacono " + fmtDate(r.booking_deposit_paid_date) + " — kliknij, by cofnąć",
@@ -4157,7 +4175,7 @@ function Reservations({
     title: "Klient wp\u0142aci\u0142 zaliczk\u0119 \u2014 kliknij, by oznaczy\u0107"
   }, "\uD83D\uDCB0 Oznacz wp\u0142at\u0119")), /*#__PURE__*/React.createElement("td", null, (() => {
     const aSum = addons.filter(a => a.reservation_id === r.id).reduce((s, a) => s + (+a.price || 0) * (+a.quantity || 1), 0);
-    const rev = (+r.rental_cost || 0) + (+r.transport_cost || 0) + aSum;
+    const rev = sumItems(r, 'rental_cost') + (+r.transport_cost || 0) + aSum;
     const cost = +r.cost || 0;
     const m = rev - cost;
     return cost ? /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", {
@@ -5023,10 +5041,10 @@ function buildContractData(r, client, equip, settings, addons) {
     data_od: r.start_date ? fmtDate(r.start_date) : "",
     data_do: r.end_date ? fmtDate(r.end_date) : "",
     dni: String(days),
-    cena_wynajem: fmtPLN(r.rental_cost),
+    cena_wynajem: fmtPLN(sumItems(r, 'rental_cost')),
     cena_transport: fmtPLN(r.transport_cost),
     cena_dodatki: fmtPLN(aSum),
-    kaucja: fmtPLN(r.deposit_amount),
+    kaucja: fmtPLN(sumItems(r, 'deposit_amount')),
     zaliczka: fmtPLN(depAmt),
     zaliczka_status: depPaid ? "wpłacona " + (r.booking_deposit_paid_date ? fmtDate(r.booking_deposit_paid_date) : "") : "niewpłacona",
     pozostalo: fmtPLN(remaining),
