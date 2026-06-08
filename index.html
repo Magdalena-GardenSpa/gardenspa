@@ -5703,7 +5703,33 @@ function CalendarView({
       color: "#7a5a00",
       borderColor: "#e3cc80"
     }
-  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCE4"), /*#__PURE__*/React.createElement("div", null, "To jest ", /*#__PURE__*/React.createElement("b", null, "oferta wys\u0142ana do klienta"), " \u2014 termin jest wst\u0119pnie zaj\u0119ty, ale klient jeszcze nie potwierdzi\u0142. Zaakceptuj ofert\u0119 w \u201EOferty\" \u2192 \u201E\u2713 Akceptuj\", \u017Ceby zamieni\u0107 j\u0105 w rezerwacj\u0119.")), /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCE4"), /*#__PURE__*/React.createElement("div", null, "To jest ", /*#__PURE__*/React.createElement("b", null, "oferta wys\u0142ana do klienta"), " \u2014 termin jest wst\u0119pnie zaj\u0119ty, ale klient jeszcze nie potwierdzi\u0142. Zaakceptuj ofert\u0119 w \u201EOferty\" \u2192 \u201E\u2713 Akceptuj\", \u017Ceby zamieni\u0107 j\u0105 w rezerwacj\u0119.")), isSetOf(sel) ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      margin: "4px 0",
+      padding: "8px 12px",
+      background: "#f3e8ff",
+      borderRadius: 6,
+      border: "1px solid #d8bff5"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: "#6b46c1",
+      fontWeight: 700,
+      marginBottom: 5
+    }
+  }, "\uD83D\uDCE6 Zestaw (", 1 + sel.extra_items.length, " szt.):"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      lineHeight: 1.5
+    }
+  }, /*#__PURE__*/React.createElement("div", null, "\u2022 ", /*#__PURE__*/React.createElement("b", null, equipName(sel.equipment_id)), " ", sel.kind === "lift" && /*#__PURE__*/React.createElement("span", {
+    className: "badge b-blue",
+    style: {
+      marginLeft: 6
+    }
+  }, "z operatorem")), sel.extra_items.map((x, i) => /*#__PURE__*/React.createElement("div", {
+    key: i
+  }, "\u2022 ", /*#__PURE__*/React.createElement("b", null, equipName(x.equipment_id)))))) : /*#__PURE__*/React.createElement("p", {
     style: {
       margin: "4px 0"
     }
@@ -5720,7 +5746,7 @@ function CalendarView({
     style: {
       margin: "4px 0"
     }
-  }, /*#__PURE__*/React.createElement("b", null, "Termin:"), " ", fmtDateTime(sel.start_date), " \u2014 ", fmtDateTime(sel.end_date)), /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement("b", null, "Termin:"), " ", fmtDate(sel.start_date), " \u2014 ", fmtDate(sel.end_date)), /*#__PURE__*/React.createElement("p", {
     style: {
       margin: "4px 0"
     }
@@ -5732,7 +5758,31 @@ function CalendarView({
     style: {
       margin: "4px 0"
     }
-  }, /*#__PURE__*/React.createElement("b", null, "Kwota:"), " ", fmtPLN(sel.total)), sel.delivery_address && /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement("b", null, "Kwota:"), " ", fmtPLN(sel.total), (() => {
+    const k = sumItems(sel, "deposit_amount");
+    return k > 0 ? /*#__PURE__*/React.createElement("span", {
+      className: "muted",
+      style: {
+        marginLeft: 8,
+        fontSize: 12.5
+      }
+    }, "(w tym kaucja ", fmtPLN(k), ")") : null;
+  })()), sel.selected_package && /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "4px 0"
+    }
+  }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCE6 Pakiet:"), " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#6b46c1",
+      fontWeight: 600
+    }
+  }, sel.selected_package.name), +sel.selected_package.price_modifier !== 0 && /*#__PURE__*/React.createElement("span", {
+    className: "muted",
+    style: {
+      marginLeft: 5,
+      fontSize: 12.5
+    }
+  }, "(", +sel.selected_package.price_modifier > 0 ? "+" : "", fmtPLN(+sel.selected_package.price_modifier), ")")), sel.delivery_address && /*#__PURE__*/React.createElement("p", {
     style: {
       margin: "4px 0"
     }
@@ -5744,7 +5794,15 @@ function CalendarView({
     style: {
       margin: "4px 0"
     }
-  }, /*#__PURE__*/React.createElement("b", null, "Notatki:"), " ", sel.notes), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("b", null, "Notatki:"), " ", sel.notes), sel.promotion && /*#__PURE__*/React.createElement("p", {
+    style: {
+      margin: "4px 0",
+      padding: "6px 10px",
+      background: "#fff4e6",
+      borderRadius: 6,
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement("b", null, "\uD83D\uDCE3 Promocja:"), " ", sel.promotion), /*#__PURE__*/React.createElement("div", {
     className: "modal-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn ghost",
