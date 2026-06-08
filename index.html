@@ -434,10 +434,10 @@ function(a,b,c){if(!Vd(b))throw Error(n(200));return Wd(null,a,b,!1,c)};Q.unmoun
     table{min-width:540px}
     /* Kalendarz mobilny */
     .cal-head{font-size:9.5px;letter-spacing:0}
-    .cal-head>div{padding:4px 1px}
-    .cal-cell{min-height:54px;padding:2px 2px 3px}
+    .cal-head>div{padding:4px 1px;min-width:0;overflow:hidden;box-sizing:border-box}
+    .cal-cell{min-height:54px;padding:2px 2px 3px;min-width:0;overflow:hidden;box-sizing:border-box}
     .cal-daynum{font-size:11px;margin-bottom:2px}
-    .cal-event{font-size:9px;padding:1px 3px;border-radius:3px;line-height:1.15}
+    .cal-event{font-size:9px;padding:1px 3px;border-radius:3px;line-height:1.15;max-width:100%;box-sizing:border-box}
     .cal-overflow{font-size:8.5px;right:2px;top:2px}
   }
   /* Print */
