@@ -4045,10 +4045,11 @@ function Reservations({
         price: +a.price || 0,
         quantity: +a.quantity || 1
       });
-      // status sprzętu
-      if (f.equipment_id) {
-        const st = f.status === "issued" ? "rented" : ["returned", "settled"].includes(f.status) ? "available" : null;
-        if (st) await sbUpdate("equipment", "id", f.equipment_id, {
+      // status sprzętu (główny + zestaw)
+      const st = f.status === "issued" ? "rented" : ["returned", "settled"].includes(f.status) ? "available" : null;
+      if (st) {
+        const ids = [f.equipment_id, ...(f._extras || []).map(x => x.equipment_id)].filter(Boolean);
+        for (const eid of ids) await sbUpdate("equipment", "id", eid, {
           status: st
         });
       }
@@ -4078,9 +4079,11 @@ function Reservations({
       await sbUpdate("reservations", "id", r.id, {
         status: ns
       });
-      if (r.equipment_id) {
-        const st = ns === "issued" ? "rented" : ["returned", "settled"].includes(ns) ? "available" : null;
-        if (st) await sbUpdate("equipment", "id", r.equipment_id, {
+      const st = ns === "issued" ? "rented" : ["returned", "settled"].includes(ns) ? "available" : null;
+      if (st) {
+        // Aktualizuj status WSZYSTKICH sprzętów (główny + zestaw)
+        const ids = [r.equipment_id, ...(r.extra_items || []).map(x => x.equipment_id)].filter(Boolean);
+        for (const eid of ids) await sbUpdate("equipment", "id", eid, {
           status: st
         });
       }
@@ -5589,14 +5592,15 @@ function CalendarView({
         opacity: c.inMonth ? 1 : 0.5,
         minHeight: 88,
         padding: "5px 6px 4px",
-        borderTop: td ? "3px solid var(--green-d)" : "none"
+        borderTop: td ? "3px solid var(--green-d)" : "none",
+        position: "relative"
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 3
+        textAlign: "center",
+        marginBottom: 3,
+        position: "relative",
+        lineHeight: 1
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
@@ -5606,6 +5610,9 @@ function CalendarView({
       }
     }, c.date.getDate()), events.length > 3 && /*#__PURE__*/React.createElement("span", {
       style: {
+        position: "absolute",
+        right: 0,
+        top: 0,
         fontSize: 10,
         color: "#5a6b5d"
       }
@@ -6001,7 +6008,8 @@ function Offers({
     rental_override: "",
     booking_deposit_amount: "",
     _addons: [],
-    _extras: []
+    _extras: [],
+    promotion: ""
   };
   const [f, setF] = useState(blank);
   const set = (k, v) => setF(p => ({
@@ -6107,7 +6115,8 @@ function Offers({
         _extras: o.extra_items && Array.isArray(o.extra_items) ? o.extra_items.map(x => ({
           ...x,
           rental_override: x.rental_cost != null ? String(x.rental_cost) : ""
-        })) : []
+        })) : [],
+        promotion: o.promotion || ""
       });
       setEditing(o.id);
     } else {
@@ -6227,7 +6236,8 @@ function Offers({
         valid_until: f.valid_until || null,
         booking_deposit_amount: f.booking_deposit_amount === "" || f.booking_deposit_amount == null ? null : +f.booking_deposit_amount,
         set_id: f.set_id || null,
-        extra_items: extraItems
+        extra_items: extraItems,
+        promotion: f.promotion || ""
       };
       let oId = editing;
       if (editing === "new") {
@@ -6350,6 +6360,9 @@ function Offers({
     if (kaucjaAll > 0) s += ` (+ zwrotna kaucja ${fmtPLN(kaucjaAll)})`;
     s += `\n`;
     if (o.notes && o.notes.trim()) s += `\nDodatkowe ustalenia: ${o.notes.trim()}\n`;
+    if (o.promotion && o.promotion.trim()) {
+      s += `\n📣 Promocja / oferta specjalna:\n${o.promotion.trim()}\n`;
+    }
     if (o.valid_until) s += `\nOferta ważna do: ${fmtDate(o.valid_until)}.\n`;
     const dep = +o.booking_deposit_amount || +settings.booking_deposit || 200;
     if (o.booking_deposit_paid) {
@@ -6781,7 +6794,51 @@ function Offers({
   }, /*#__PURE__*/React.createElement("textarea", {
     value: f.notes || "",
     onChange: e => set("notes", e.target.value)
-  })), /*#__PURE__*/React.createElement(Field, {
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff4e6",
+      padding: "12px 14px",
+      borderRadius: 8,
+      marginBottom: 14,
+      border: "1px solid #ffd8a8"
+    }
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "\uD83D\uDCE3 Promocja / dodatkowe opcje (zostan\u0105 dopisane do SMS-a / maila do klienta)"
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: f.promotion || "",
+    onChange: e => set("promotion", e.target.value),
+    style: {
+      minHeight: 60
+    },
+    placeholder: "np. -10% przy rezerwacji powy\u017Cej 2 dni \xB7 gratis butelka wina przy pakiecie balia+sauna"
+  })), settings.promo_templates && settings.promo_templates.trim() && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: "#5a6b5d",
+      marginRight: 6
+    }
+  }, "Wstaw szablon:"), settings.promo_templates.split("\n").filter(l => l.trim()).map((line, idx) => /*#__PURE__*/React.createElement("button", {
+    key: idx,
+    type: "button",
+    className: "btn ghost sm",
+    style: {
+      marginRight: 4,
+      marginBottom: 4,
+      background: "#ffd8a8",
+      color: "#723b13"
+    },
+    onClick: () => set("promotion", (f.promotion ? f.promotion + "\n" : "") + line.trim())
+  }, "+ ", line.trim().slice(0, 40), line.trim().length > 40 ? "…" : ""))), (!settings.promo_templates || !settings.promo_templates.trim()) && /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 11,
+      color: "#888",
+      margin: "6px 0 0"
+    }
+  }, "\uD83D\uDCA1 Mo\u017Cesz zdefiniowa\u0107 szablony promocji w Ustawieniach \u2014 wtedy pojawi\u0105 si\u0119 tutaj jednym klikni\u0119ciem.")), /*#__PURE__*/React.createElement(Field, {
     label: "Koszt w\u0142asny (do liczenia mar\u017Cy \u2014 pole widoczne tylko dla Ciebie, NIE pojawia si\u0119 na wycenie dla klienta)"
   }, /*#__PURE__*/React.createElement("input", {
     type: "number",
@@ -7393,7 +7450,8 @@ function Settings({
         booking_deposit: +f.booking_deposit || 200,
         social_link: f.social_link || "",
         payment_info: f.payment_info || "",
-        signature_map: f.signature_map || ""
+        signature_map: f.signature_map || "",
+        promo_templates: f.promo_templates || ""
       });
       flash("Zapisano ustawienia.");
       reload();
@@ -7509,9 +7567,33 @@ function Settings({
   }, /*#__PURE__*/React.createElement("textarea", {
     value: f.signature_map || "",
     onChange: e => set("signature_map", e.target.value),
-    placeholder: "magdalenabalazyk=Magdalena\ntomek=Tomek",
+    placeholder: "magdalenabalazyk=Magdalena\nkeba=Tomek",
     style: {
       minHeight: 70,
+      fontFamily: "monospace",
+      fontSize: 13
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: "#5a6b5d",
+      marginTop: 6,
+      padding: "6px 10px",
+      background: "#fffbea",
+      borderRadius: 6
+    }
+  }, /*#__PURE__*/React.createElement("b", null, "Tw\xF3j obecny e-mail:"), " ", /*#__PURE__*/React.createElement("code", null, currentUserEmail() || "—"), " \u2192 rozpoznane imi\u0119: ", /*#__PURE__*/React.createElement("b", null, currentUserFirstName(f) || "—"), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11
+    }
+  }, "Je\u015Bli imi\u0119 jest nie to: dodaj linijk\u0119 \u201Efragment_emaila=Imi\u0119\" (np. ", /*#__PURE__*/React.createElement("code", null, "keba=Tomek"), ") i zapisz ustawienia."))), /*#__PURE__*/React.createElement(Field, {
+    label: "\uD83D\uDCE3 Szablony promocji (jedna na lini\u0119 \u2014 pojawi\u0105 si\u0119 jako szybkie przyciski w formularzu oferty)"
+  }, /*#__PURE__*/React.createElement("textarea", {
+    value: f.promo_templates || "",
+    onChange: e => set("promo_templates", e.target.value),
+    placeholder: "-10% przy rezerwacji powyżej 2 dni\nGratis butelka wina przy pakiecie balia+sauna\nDarmowy transport do 30 km dla stałych klientów",
+    style: {
+      minHeight: 90,
       fontFamily: "monospace",
       fontSize: 13
     }
