@@ -3826,7 +3826,10 @@ function Reservations({
     rental_override: "",
     booking_deposit_amount: "",
     _addons: [],
-    _extras: []
+    _extras: [],
+    is_voucher: false,
+    voucher_valid_until: "",
+    voucher_paid: 0
   };
   const [f, setF] = useState(blank);
   const set = (k, v) => setF(p => ({
@@ -3923,7 +3926,10 @@ function Reservations({
         _extras: r.extra_items && Array.isArray(r.extra_items) ? r.extra_items.map(x => ({
           ...x,
           rental_override: x.rental_cost != null ? String(x.rental_cost) : ""
-        })) : []
+        })) : [],
+        is_voucher: !!r.is_voucher,
+        voucher_valid_until: r.voucher_valid_until || "",
+        voucher_paid: r.voucher_paid || 0
       });
       setEditing(r.id);
     } else {
@@ -4063,7 +4069,10 @@ function Reservations({
         rate_qty: +f.rate_qty || 1,
         booking_deposit_amount: f.booking_deposit_amount === "" || f.booking_deposit_amount == null ? null : +f.booking_deposit_amount,
         set_id: f.set_id || null,
-        extra_items: extraItems
+        extra_items: extraItems,
+        is_voucher: !!f.is_voucher,
+        voucher_valid_until: f.voucher_valid_until || null,
+        voucher_paid: +f.voucher_paid || 0
       };
       let resId = editing;
       if (editing === "new") {
@@ -4211,7 +4220,7 @@ function Reservations({
     }
   }, "\uD83D\uDCE6 Zestaw (", 1 + r.extra_items.length, " szt.):"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, equipName(r.equipment_id))), r.extra_items.map((x, i) => /*#__PURE__*/React.createElement("div", {
     key: i
-  }, /*#__PURE__*/React.createElement("b", null, equipName(x.equipment_id)))), r.selected_package && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("b", null, equipName(x.equipment_id)))), r.is_voucher && /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#8a6d00",fontWeight:700,marginTop:3,background:"#fff8dc",padding:"2px 6px",borderRadius:4,display:"inline-block",border:"1px solid #d4af37"}}, "✨ VOUCHER", r.voucher_valid_until?" ważny do "+fmtDate(r.voucher_valid_until):"", " — wpłacono ", fmtPLN(+r.voucher_paid||0)), r.selected_package && /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: "#6b46c1",
@@ -4223,7 +4232,7 @@ function Reservations({
     style: {
       marginLeft: 6
     }
-  }, "z operatorem"), r.selected_package && /*#__PURE__*/React.createElement("div", {
+  }, "z operatorem"), r.is_voucher && /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#8a6d00",fontWeight:700,marginTop:2,background:"#fff8dc",padding:"2px 6px",borderRadius:4,display:"inline-block",border:"1px solid #d4af37"}}, "✨ VOUCHER", r.voucher_valid_until?" ważny do "+fmtDate(r.voucher_valid_until):"", " — wpłacono ", fmtPLN(+r.voucher_paid||0)), r.selected_package && /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: "#6b46c1",
@@ -4578,7 +4587,7 @@ function Reservations({
         _extras: p._extras.filter((_, i) => i !== idx)
       }))
     }, "\uD83D\uDDD1 Usu\u0144 ten sprz\u0119t"))));
-  })), /*#__PURE__*/React.createElement("label", null, "Dodatki"), (f._addons || []).map((a, i) => /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {style:{background:"#fff8dc",padding:"12px 14px",borderRadius:8,marginBottom:14,border:"2px solid #d4af37"}},/*#__PURE__*/React.createElement("label", {style:{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontWeight:700,color:"#8a6d00"}},/*#__PURE__*/React.createElement("input", {type:"checkbox",checked:!!f.is_voucher,onChange:e=>set("is_voucher",e.target.checked)}),"✨ Voucher (świąteczny / urodzinowy / prezentowy)"),f.is_voucher && /*#__PURE__*/React.createElement("div", {style:{marginTop:10,paddingTop:10,borderTop:"1px dashed #d4af37"}},/*#__PURE__*/React.createElement("div", {className:"row2"},/*#__PURE__*/React.createElement(Field, {label:"Ważny do (data)"},/*#__PURE__*/React.createElement("input", {type:"date",value:f.voucher_valid_until||"",onChange:e=>set("voucher_valid_until",e.target.value)})),/*#__PURE__*/React.createElement(Field, {label:"Wpłacono (zł)"},/*#__PURE__*/React.createElement("input", {type:"number",step:"0.01",value:f.voucher_paid||0,onChange:e=>set("voucher_paid",e.target.value)}))),/*#__PURE__*/React.createElement("p", {style:{fontSize:12,color:"#7a5a00",margin:"6px 0 0"}}, "Voucher można zaakceptować — powstanie rezerwacja, w której klient później wybierze termin. Kwoty i daty pozostaną edytowalne."))), /*#__PURE__*/React.createElement("label", null, "Dodatki"), (f._addons || []).map((a, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     className: "addon-row"
   }, /*#__PURE__*/React.createElement("input", {
@@ -5810,7 +5819,7 @@ function CalendarView({
       marginLeft: 5,
       fontSize: 12.5
     }
-  }, "(", +sel.selected_package.price_modifier > 0 ? "+" : "", fmtPLN(+sel.selected_package.price_modifier), ")")), sel.delivery_address && /*#__PURE__*/React.createElement("p", {
+  }, "(", +sel.selected_package.price_modifier > 0 ? "+" : "", fmtPLN(+sel.selected_package.price_modifier), ")")), sel.is_voucher && /*#__PURE__*/React.createElement("p", {style:{margin:"4px 0",padding:"8px 12px",background:"#fff8dc",borderRadius:6,border:"1px solid #d4af37"}}, /*#__PURE__*/React.createElement("b", {style:{color:"#8a6d00"}}, "✨ VOUCHER"),sel.voucher_valid_until ? " — ważny do " + fmtDate(sel.voucher_valid_until) : "",/*#__PURE__*/React.createElement("br", null),"Wpłacono: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(+sel.voucher_paid||0)),+sel.voucher_paid < +sel.total ? /*#__PURE__*/React.createElement("span", {className:"muted", style:{marginLeft:6,fontSize:12}}, "(pozostało ", fmtPLN(Math.max(0,(+sel.total||0)-(+sel.voucher_paid||0))), ")") : "" ), sel.delivery_address && /*#__PURE__*/React.createElement("p", {
     style: {
       margin: "4px 0"
     }
@@ -6084,7 +6093,10 @@ function Offers({
     _extras: [],
     promotion: "",
     _offeredPkgIds: [],
-    selected_package_id: ""
+    selected_package_id: "",
+    is_voucher: false,
+    voucher_valid_until: "",
+    voucher_paid: 0
   };
   const [f, setF] = useState(blank);
   const set = (k, v) => setF(p => ({
@@ -6197,7 +6209,10 @@ function Offers({
         })) : [],
         promotion: o.promotion || "",
         _offeredPkgIds: o.offered_packages && Array.isArray(o.offered_packages) ? o.offered_packages.map(p => p.id).filter(Boolean) : [],
-        selected_package_id: o.selected_package && o.selected_package.id || ""
+        selected_package_id: o.selected_package && o.selected_package.id || "",
+        is_voucher: !!o.is_voucher,
+        voucher_valid_until: o.voucher_valid_until || "",
+        voucher_paid: o.voucher_paid || 0
       });
       setEditing(o.id);
     } else {
@@ -6319,6 +6334,9 @@ function Offers({
         set_id: f.set_id || null,
         extra_items: extraItems,
         promotion: f.promotion || "",
+        is_voucher: !!f.is_voucher,
+        voucher_valid_until: f.voucher_valid_until || null,
+        voucher_paid: +f.voucher_paid || 0,
         offered_packages: (f._offeredPkgIds || []).map(pid => {
           const p = (packages || []).find(x => x.id === pid);
           return p ? {
@@ -6399,7 +6417,10 @@ function Offers({
         extra_items: o.extra_items || [],
         promotion: o.promotion || "",
         offered_packages: o.offered_packages || [],
-        selected_package: o.selected_package || null
+        selected_package: o.selected_package || null,
+        is_voucher: !!o.is_voucher,
+        voucher_valid_until: o.voucher_valid_until || null,
+        voucher_paid: o.voucher_paid || 0
       };
       const r = await sbInsert("reservations", rBody);
       const rId = r[0].id;
@@ -6987,7 +7008,7 @@ function Offers({
       color: "#888",
       margin: "6px 0 0"
     }
-  }, "\uD83D\uDCA1 Mo\u017Cesz zdefiniowa\u0107 szablony promocji w Ustawieniach \u2014 wtedy pojawi\u0105 si\u0119 tutaj jednym klikni\u0119ciem.")), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCA1 Mo\u017Cesz zdefiniowa\u0107 szablony promocji w Ustawieniach \u2014 wtedy pojawi\u0105 si\u0119 tutaj jednym klikni\u0119ciem.")), /*#__PURE__*/React.createElement("div", {style:{background:"#fff8dc",padding:"12px 14px",borderRadius:8,marginBottom:14,border:"2px solid #d4af37"}},/*#__PURE__*/React.createElement("label", {style:{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontWeight:700,color:"#8a6d00"}},/*#__PURE__*/React.createElement("input", {type:"checkbox",checked:!!f.is_voucher,onChange:e=>set("is_voucher",e.target.checked)}),"✨ Voucher (świąteczny / urodzinowy / prezentowy)"),f.is_voucher && /*#__PURE__*/React.createElement("div", {style:{marginTop:10,paddingTop:10,borderTop:"1px dashed #d4af37"}},/*#__PURE__*/React.createElement("div", {className:"row2"},/*#__PURE__*/React.createElement(Field, {label:"Ważny do (data)"},/*#__PURE__*/React.createElement("input", {type:"date",value:f.voucher_valid_until||"",onChange:e=>set("voucher_valid_until",e.target.value)})),/*#__PURE__*/React.createElement(Field, {label:"Wpłacono (zł)"},/*#__PURE__*/React.createElement("input", {type:"number",step:"0.01",value:f.voucher_paid||0,onChange:e=>set("voucher_paid",e.target.value)}))),/*#__PURE__*/React.createElement("p", {style:{fontSize:12,color:"#7a5a00",margin:"6px 0 0"}}, "Voucher można zaakceptować — powstanie rezerwacja, w której klient później wybierze termin. Kwoty i daty pozostaną edytowalne."))), /*#__PURE__*/React.createElement("div", {
     style: {
       background: "#f0f9eb",
       padding: "12px 14px",
