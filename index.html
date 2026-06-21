@@ -4246,7 +4246,7 @@ function Reservations({
     style: {
       fontSize: 11
     }
-  }, "w tym kaucja ", fmtPLN(sumItems(r, "deposit_amount")))), /*#__PURE__*/React.createElement("td", null, r.is_voucher ? /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#8a6d00",fontWeight:600,background:"#fff8dc",padding:"5px 8px",borderRadius:6,border:"1px solid #d4af37",lineHeight:1.4,textAlign:"center"}}, /*#__PURE__*/React.createElement("div", {style:{fontSize:10,fontWeight:700}}, "✨ VOUCHER"), /*#__PURE__*/React.createElement("div", {style:{fontSize:13,fontWeight:700}}, fmtPLN(+r.voucher_paid||0)), (+r.voucher_paid || 0) >= (+r.total || 0) ? /*#__PURE__*/React.createElement("div", {style:{fontSize:10,color:"#1b5e20",fontWeight:700}}, "✓ całość wpłacona") : /*#__PURE__*/React.createElement("div", {style:{fontSize:10,color:"#b3541e",fontWeight:700}}, "brakuje ", fmtPLN(Math.max(0,(+r.total||0)-(+r.voucher_paid||0))))) : r.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
+  }, "w tym kaucja ", fmtPLN(sumItems(r, "deposit_amount")))), /*#__PURE__*/React.createElement("td", null, r.is_voucher ? /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#8a6d00",fontWeight:600,background:"#fff8dc",padding:"5px 8px",borderRadius:6,border:"1px solid #d4af37",lineHeight:1.4,textAlign:"center"}}, /*#__PURE__*/React.createElement("div", {style:{fontSize:10,fontWeight:700}}, "✨ VOUCHER"), /*#__PURE__*/React.createElement("div", {style:{fontSize:13,fontWeight:700}}, fmtPLN(+r.voucher_paid||0)), (() => { const serviceCost = Math.max(0, (+r.total||0) - (+r.deposit_amount||0)); const paid = +r.voucher_paid||0; return paid >= serviceCost ? /*#__PURE__*/React.createElement("div", {style:{fontSize:10,color:"#1b5e20",fontWeight:700}}, "✓ opłacony") : /*#__PURE__*/React.createElement("div", {style:{fontSize:10,color:"#b3541e",fontWeight:700}}, "brakuje ", fmtPLN(serviceCost - paid)); })()) : r.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => toggleDeposit(r),
     title: "Wpłacono " + fmtDate(r.booking_deposit_paid_date) + " — kliknij, by cofnąć",
@@ -4311,7 +4311,7 @@ function Reservations({
     wide: true,
     title: editing === "new" ? "Nowa rezerwacja" : "Edycja rezerwacji",
     onClose: () => setEditing(null)
-  }, /*#__PURE__*/React.createElement("div", {
+  }, f.client_id && (() => { const cli = clients.find(c => c.id === f.client_id); const fd = cli && cli.future_discount; const validNow = fd && (fd.valid_until ? new Date(fd.valid_until) >= new Date(new Date().toDateString()) : true); if(!fd || !validNow) return null; return /*#__PURE__*/React.createElement("div", {style:{padding:"12px 14px",background:"linear-gradient(135deg,#fff4e6 0%,#fde9c8 100%)",borderRadius:8,marginBottom:14,border:"2px solid #d4af37",fontSize:13.5}}, /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}, /*#__PURE__*/React.createElement("span", {style:{fontSize:20}}, "✨"), /*#__PURE__*/React.createElement("b", {style:{color:"#723b13",fontSize:15}}, "Ten klient ma rabat -", fd.percent, "%"), fd.valid_until && /*#__PURE__*/React.createElement("span", {style:{color:"#5a6b5d",fontSize:12}}, "ważny do ", fmtDate(fd.valid_until))), fd.description && /*#__PURE__*/React.createElement("div", {style:{fontSize:12,color:"#5a6b5d",marginTop:4}}, "Powód: ", fd.description), /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#7a5a00",marginTop:6,fontStyle:"italic"}}, "★ Pamiętaj o uwzględnieniu rabatu w cenie!")); })(), /*#__PURE__*/React.createElement("div", {
     className: "row2"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Sprz\u0119t"
@@ -5819,7 +5819,7 @@ function CalendarView({
       marginLeft: 5,
       fontSize: 12.5
     }
-  }, "(", +sel.selected_package.price_modifier > 0 ? "+" : "", fmtPLN(+sel.selected_package.price_modifier), ")")), sel.is_voucher && /*#__PURE__*/React.createElement("p", {style:{margin:"4px 0",padding:"8px 12px",background:"#fff8dc",borderRadius:6,border:"1px solid #d4af37"}}, /*#__PURE__*/React.createElement("b", {style:{color:"#8a6d00"}}, "✨ VOUCHER"),sel.voucher_valid_until ? " — ważny do " + fmtDate(sel.voucher_valid_until) : "",/*#__PURE__*/React.createElement("br", null),"Wpłacono: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(+sel.voucher_paid||0)),+sel.voucher_paid < +sel.total ? /*#__PURE__*/React.createElement("span", {className:"muted", style:{marginLeft:6,fontSize:12}}, "(pozostało ", fmtPLN(Math.max(0,(+sel.total||0)-(+sel.voucher_paid||0))), ")") : "" ), sel.delivery_address && /*#__PURE__*/React.createElement("p", {
+  }, "(", +sel.selected_package.price_modifier > 0 ? "+" : "", fmtPLN(+sel.selected_package.price_modifier), ")")), sel.is_voucher && /*#__PURE__*/React.createElement("p", {style:{margin:"4px 0",padding:"8px 12px",background:"#fff8dc",borderRadius:6,border:"1px solid #d4af37"}}, /*#__PURE__*/React.createElement("b", {style:{color:"#8a6d00"}}, "✨ VOUCHER"),sel.voucher_valid_until ? " — ważny do " + fmtDate(sel.voucher_valid_until) : "",/*#__PURE__*/React.createElement("br", null),"Wpłacono: ", /*#__PURE__*/React.createElement("b", null, fmtPLN(+sel.voucher_paid||0)),(() => { const sc = Math.max(0,(+sel.total||0)-(+sel.deposit_amount||0)); const pd = +sel.voucher_paid||0; return pd < sc ? /*#__PURE__*/React.createElement("span", {className:"muted", style:{marginLeft:6,fontSize:12}}, "(brakuje ", fmtPLN(sc - pd), ")") : /*#__PURE__*/React.createElement("span", {style:{marginLeft:6,fontSize:12,color:"#1b5e20",fontWeight:700}}, "✓ opłacony"); })() ), sel.delivery_address && /*#__PURE__*/React.createElement("p", {
     style: {
       margin: "4px 0"
     }
@@ -6614,7 +6614,7 @@ function Offers({
       color: "#888",
       marginTop: 2
     }
-  }, "\uD83D\uDCE6 Pakiety zaoferowane (", o.offered_packages.length, ")"))), /*#__PURE__*/React.createElement("td", null, fmtDate(o.start_date), "\u2013", fmtDate(o.end_date)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("b", null, fmtPLN(o.total))), /*#__PURE__*/React.createElement("td", null, o.is_voucher ? /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#8a6d00",fontWeight:600,background:"#fff8dc",padding:"5px 8px",borderRadius:6,border:"1px solid #d4af37",lineHeight:1.4,textAlign:"center"}}, /*#__PURE__*/React.createElement("div", {style:{fontSize:10,fontWeight:700}}, "✨ VOUCHER"), /*#__PURE__*/React.createElement("div", {style:{fontSize:13,fontWeight:700}}, fmtPLN(+o.voucher_paid||0)), (+o.voucher_paid || 0) >= (+o.total || 0) ? /*#__PURE__*/React.createElement("div", {style:{fontSize:10,color:"#1b5e20",fontWeight:700}}, "✓ całość wpłacona") : /*#__PURE__*/React.createElement("div", {style:{fontSize:10,color:"#b3541e",fontWeight:700}}, "brakuje ", fmtPLN(Math.max(0,(+o.total||0)-(+o.voucher_paid||0))))) : o.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCE6 Pakiety zaoferowane (", o.offered_packages.length, ")"))), /*#__PURE__*/React.createElement("td", null, fmtDate(o.start_date), "\u2013", fmtDate(o.end_date)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("b", null, fmtPLN(o.total))), /*#__PURE__*/React.createElement("td", null, o.is_voucher ? /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#8a6d00",fontWeight:600,background:"#fff8dc",padding:"5px 8px",borderRadius:6,border:"1px solid #d4af37",lineHeight:1.4,textAlign:"center"}}, /*#__PURE__*/React.createElement("div", {style:{fontSize:10,fontWeight:700}}, "✨ VOUCHER"), /*#__PURE__*/React.createElement("div", {style:{fontSize:13,fontWeight:700}}, fmtPLN(+o.voucher_paid||0)), (() => { const serviceCost = Math.max(0, (+o.total||0) - (+o.deposit_amount||0)); const paid = +o.voucher_paid||0; return paid >= serviceCost ? /*#__PURE__*/React.createElement("div", {style:{fontSize:10,color:"#1b5e20",fontWeight:700}}, "✓ opłacony") : /*#__PURE__*/React.createElement("div", {style:{fontSize:10,color:"#b3541e",fontWeight:700}}, "brakuje ", fmtPLN(serviceCost - paid)); })()) : o.booking_deposit_paid ? /*#__PURE__*/React.createElement("button", {
     className: "btn ghost sm",
     onClick: () => toggleDeposit(o),
     title: "Wpłacono " + fmtDate(o.booking_deposit_paid_date) + " — kliknij, by cofnąć",
@@ -6672,7 +6672,7 @@ function Offers({
     wide: true,
     title: editing === "new" ? "Nowa oferta" : "Edycja oferty " + (offers.find(x => x.id === editing) && fmtOfferNo(offers.find(x => x.id === editing)) || ""),
     onClose: () => setEditing(null)
-  }, /*#__PURE__*/React.createElement("div", {
+  }, f.client_id && (() => { const cli = clients.find(c => c.id === f.client_id); const fd = cli && cli.future_discount; const validNow = fd && (fd.valid_until ? new Date(fd.valid_until) >= new Date(new Date().toDateString()) : true); if(!fd || !validNow) return null; return /*#__PURE__*/React.createElement("div", {style:{padding:"12px 14px",background:"linear-gradient(135deg,#fff4e6 0%,#fde9c8 100%)",borderRadius:8,marginBottom:14,border:"2px solid #d4af37",fontSize:13.5}}, /*#__PURE__*/React.createElement("div", {style:{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}, /*#__PURE__*/React.createElement("span", {style:{fontSize:20}}, "✨"), /*#__PURE__*/React.createElement("b", {style:{color:"#723b13",fontSize:15}}, "Ten klient ma rabat -", fd.percent, "%"), fd.valid_until && /*#__PURE__*/React.createElement("span", {style:{color:"#5a6b5d",fontSize:12}}, "ważny do ", fmtDate(fd.valid_until))), fd.description && /*#__PURE__*/React.createElement("div", {style:{fontSize:12,color:"#5a6b5d",marginTop:4}}, "Powód: ", fd.description), /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#7a5a00",marginTop:6,fontStyle:"italic"}}, "★ Pamiętaj o uwzględnieniu rabatu w cenie!")); })(), /*#__PURE__*/React.createElement("div", {
     className: "row2"
   }, /*#__PURE__*/React.createElement(Field, {
     label: "Klient"
@@ -7396,7 +7396,7 @@ function PrintOffer({
       color: "#9a6b00",
       marginBottom: 14
     }
-  }, /*#__PURE__*/React.createElement("b", null, "Oferta wa\u017Cna do: ", fmtDate(o.valid_until))), /*#__PURE__*/React.createElement("table", {
+  }, /*#__PURE__*/React.createElement("b", null, "Oferta wa\u017Cna do: ", fmtDate(o.valid_until))), o.variants && o.variants.length > 0 && /*#__PURE__*/React.createElement("div", {style:{marginBottom:16}}, /*#__PURE__*/React.createElement("h3", {style:{fontSize:15,color:"var(--green-d)",margin:"0 0 8px",borderBottom:"1px solid #b8d4bb",paddingBottom:4}}, "Warianty oferty do wyboru"), /*#__PURE__*/React.createElement("p", {style:{fontSize:12,color:"#5a6b5d",margin:"0 0 10px"}}, "Porównaj propozycje i wybierz dogodną dla siebie."), /*#__PURE__*/React.createElement("div", {style:{display:"grid",gridTemplateColumns:"repeat("+o.variants.length+",1fr)",gap:10}}, o.variants.map(function(v,i){ return /*#__PURE__*/React.createElement("div", {key:v.id||i, style:{border: o.selected_variant_id===v.id?"3px solid var(--green-d)":"2px solid #b8d4bb", borderRadius:10, padding:"12px 14px", background: o.selected_variant_id===v.id?"#e8f3e9":"#fff"}}, o.selected_variant_id===v.id && /*#__PURE__*/React.createElement("div", {style:{fontSize:10,fontWeight:700,color:"var(--green-d)",marginBottom:4}}, "✓ WYBRANY WARIANT"), /*#__PURE__*/React.createElement("div", {style:{fontSize:14,fontWeight:700,color:"var(--green-d)",marginBottom:8}}, v.name || "Wariant " + (i+1)), /*#__PURE__*/React.createElement("div", {style:{fontSize:22,fontWeight:700,color:"#222",marginBottom:8}}, fmtPLN(+v.total||0)), v.notes && /*#__PURE__*/React.createElement("div", {style:{fontSize:11.5,color:"#444",lineHeight:1.5,whiteSpace:"pre-wrap"}}, v.notes)); }))), /*#__PURE__*/React.createElement("table", {
     style: {
       marginBottom: 14
     }
@@ -7931,9 +7931,8 @@ function Settings({
       flash("Zapisano ustawienia.");
       reload();
     } catch (ex) {
-      setSaving(false);
       setErr(String(ex.message || ex));
-    }
+    } finally { setSaving(false); }
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "topbar"
