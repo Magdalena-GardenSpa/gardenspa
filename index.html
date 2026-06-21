@@ -2217,7 +2217,7 @@ function Initiatives({
       reload();
     } catch (ex) {
       setErr(String(ex.message));
-    }
+    } finally { setSaving(false); }
   };
   const all = initiatives.map(i => ({
     init: i,
@@ -3070,7 +3070,7 @@ function Equipment({
       reload();
     } catch (ex) {
       setErr(String(ex.message));
-    }
+    } finally { setSaving(false); }
   };
   const STAT = {
     available: ["Dostępny", "b-green"],
@@ -3379,7 +3379,7 @@ function Clients({
       reload();
     } catch (ex) {
       setErr(String(ex.message));
-    }
+    } finally { setSaving(false); }
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "topbar"
@@ -3525,26 +3525,54 @@ function Clients({
       fontSize: 13.5,
       marginBottom: 10
     }
-  }, detail.phone, " ", detail.email && "· " + detail.email), reservations.filter(r => r.client_id === detail.id).map(r => /*#__PURE__*/React.createElement("div", {
+  }, detail.phone, " ", detail.email && "· " + detail.email), (() => {
+  const cli = detail;
+  const rezs = reservations.filter(r => r.client_id === cli.id);
+  const totalSum = rezs.reduce((s,r)=>s+(+r.total||0), 0);
+  const fd = cli.future_discount;
+  return /*#__PURE__*/React.createElement("div", {style:{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap"}},
+    /*#__PURE__*/React.createElement("div", {style:{background:"#e8f3e9",padding:"8px 14px",borderRadius:8,flex:1,minWidth:120}},
+      /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#5a6b5d"}}, "Rezerwacji"),
+      /*#__PURE__*/React.createElement("div", {style:{fontSize:18,fontWeight:700,color:"var(--green-d)"}}, rezs.length)
+    ),
+    /*#__PURE__*/React.createElement("div", {style:{background:"#e8f3e9",padding:"8px 14px",borderRadius:8,flex:1,minWidth:120}},
+      /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#5a6b5d"}}, "Łącznie wartość"),
+      /*#__PURE__*/React.createElement("div", {style:{fontSize:18,fontWeight:700,color:"var(--green-d)"}}, fmtPLN(totalSum))
+    ),
+    fd && fd.percent ? /*#__PURE__*/React.createElement("div", {style:{background:"#fff4e6",padding:"8px 14px",borderRadius:8,flex:1,minWidth:160,border:"1px solid #ffd8a8"}},
+      /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#723b13"}}, "✨ Aktywny rabat"),
+      /*#__PURE__*/React.createElement("div", {style:{fontSize:14,fontWeight:700,color:"#723b13"}}, "-", fd.percent, "%"),
+      fd.valid_until && /*#__PURE__*/React.createElement("div", {style:{fontSize:10,color:"#5a6b5d"}}, "do ", fmtDate(fd.valid_until))
+    ) : null
+  );
+})(), reservations.filter(r => r.client_id === detail.id).map(r => /*#__PURE__*/React.createElement("div", {
     key: r.id,
     style: {
-      padding: "9px 0",
+      padding: "10px 0",
       borderBottom: "1px solid var(--line)",
       display: "flex",
-      justifyContent: "space-between"
+      justifyContent: "space-between",
+      gap: 10
     }
-  }, /*#__PURE__*/React.createElement("span", null, equipName(r.equipment_id), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
-    className: "muted",
+  }, /*#__PURE__*/React.createElement("span", {style:{flex:1,lineHeight:1.4}},
+    isSetOf(r) ?
+      /*#__PURE__*/React.createElement(React.Fragment, null,
+        /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#6b46c1",fontWeight:700}}, "\ud83d\udce6 Zestaw (", 1+r.extra_items.length, " szt.):"),
+        /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, equipName(r.equipment_id))),
+        r.extra_items.map((x,i)=> /*#__PURE__*/React.createElement("div", {key:i}, /*#__PURE__*/React.createElement("b", null, equipName(x.equipment_id))))
+      ) : /*#__PURE__*/React.createElement("b", null, equipName(r.equipment_id)),
+    r.selected_package && /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#6b46c1",fontWeight:600,marginTop:2}}, "\u2713 Pakiet: ", r.selected_package.name),
+    (addons.filter(a=>a.reservation_id===r.id).length>0) && /*#__PURE__*/React.createElement("div", {style:{fontSize:11,color:"#5a6b5d",marginTop:2}}, "\ud83c\udf81 Dodatki: ", addons.filter(a=>a.reservation_id===r.id).map(a=>a.name).join(", ")),
+    /*#__PURE__*/React.createElement("div", {className:"muted",style:{fontSize:12.5,marginTop:3}}, fmtDate(r.start_date), "\u2013", fmtDate(r.end_date))
+  ), /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 12.5
-    }
-  }, fmtDate(r.start_date), "\u2013", fmtDate(r.end_date))), /*#__PURE__*/React.createElement("span", {
-    style: {
-      textAlign: "right"
+      textAlign: "right",
+      minWidth: 95
     }
   }, /*#__PURE__*/React.createElement(Badge, {
     status: r.status
-  }), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", null, fmtPLN(sumItems(r, 'rental_cost') + (+r.transport_cost || 0)))))), reservations.filter(r => r.client_id === detail.id).length === 0 && /*#__PURE__*/React.createElement("p", {
+  }), /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("b", {style:{fontSize:15,color:"var(--green-d)"}}, fmtPLN(+r.total||0)),
+    (sumItems(r,"deposit_amount")>0) && /*#__PURE__*/React.createElement("div", {className:"muted",style:{fontSize:11}}, "w tym kaucja ", fmtPLN(sumItems(r,"deposit_amount")))))), reservations.filter(r => r.client_id === detail.id).length === 0 && /*#__PURE__*/React.createElement("p", {
     className: "muted"
   }, "Brak rezerwacji.")), mass && (() => {
     const consentOnly = mass.recipients === "consent";
@@ -3850,7 +3878,7 @@ function Reservations({
     const freeKm = +settings.free_km || 15,
       kmRate = +settings.km_rate || 0;
     const cat = eq ? eq.category : "";
-    const billKm = cat === "balia" || cat === "sauna" ? Math.max(0, (+f.distance_km || 0) - freeKm) : +f.distance_km || 0;
+    const billKm = cat === "balia" || cat === "sauna" ? Math.max(0, (+f.distance_km || 0) * 4 - freeKm * 4) : (+f.distance_km || 0) * 4;
     const transport = billKm * kmRate;
     const addonsSum = (f._addons || []).reduce((s, a) => s + (+a.price || 0) * (+a.quantity || 1), 0);
     const revenue = rentalAll + transport + addonsSum;
@@ -4076,7 +4104,7 @@ function Reservations({
       reload();
     } catch (ex) {
       setErr(String(ex.message));
-    }
+    } finally { setSaving(false); }
   };
   const advance = async r => {
     const i = STATUS_ORDER.indexOf(r.status);
@@ -4650,7 +4678,7 @@ function Reservations({
     }, /*#__PURE__*/React.createElement("span", null, "Wynajem: ", /*#__PURE__*/React.createElement("b", null, e ? e.name : "— wybierz —"), " (", item.rate_qty, "\xD7 ", item.rate_mode === "hour" ? "godz." : item.rate_mode === "weekend" ? "weekend" : "doba", ")"), /*#__PURE__*/React.createElement("span", null, fmtPLN(rc.rental)));
   }), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
-  }, /*#__PURE__*/React.createElement("span", null, "Transport (", calc.billKm, " km p\u0142atne)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.transport))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Transport (", calc.billKm, " km p\u0142atne - 2 kursy x 2 strony)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.transport))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
   }, /*#__PURE__*/React.createElement("span", null, "Dodatki"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.addonsSum))), calc.selPkg && /*#__PURE__*/React.createElement("div", {
     className: "calc-line",
@@ -5868,7 +5896,7 @@ function AddonCatalog({
       reload();
     } catch (ex) {
       setErr(String(ex.message));
-    }
+    } finally { setSaving(false); }
   };
   const del = async id => {
     if (!confirm("Usunąć pozycję z listy? Wcześniejsze rezerwacje pozostają nietknięte.")) return;
@@ -6109,7 +6137,7 @@ function Offers({
     const freeKm = +settings.free_km || 15,
       kmRate = +settings.km_rate || 0;
     const cat = eq ? eq.category : "";
-    const billKm = cat === "balia" || cat === "sauna" ? Math.max(0, (+f.distance_km || 0) - freeKm) : +f.distance_km || 0;
+    const billKm = cat === "balia" || cat === "sauna" ? Math.max(0, (+f.distance_km || 0) * 4 - freeKm * 4) : (+f.distance_km || 0) * 4;
     const transport = billKm * kmRate;
     const addonsSum = (f._addons || []).reduce((s, a) => s + (+a.price || 0) * (+a.quantity || 1), 0);
     const selPkg = (packages || []).find(p => p.id === f.selected_package_id);
@@ -6341,7 +6369,7 @@ function Offers({
       reload();
     } catch (ex) {
       setErr(String(ex.message));
-    }
+    } finally { setSaving(false); }
   };
   const accept = async o => {
     if (!confirm("Przekształcić ofertę w rezerwację (status: zarezerwowano)?")) return;
@@ -7107,7 +7135,7 @@ function Offers({
     }, /*#__PURE__*/React.createElement("span", null, "Wynajem: ", /*#__PURE__*/React.createElement("b", null, e ? e.name : "— wybierz —"), " (", item.rate_qty, "\xD7 ", item.rate_mode === "hour" ? "godz." : item.rate_mode === "weekend" ? "weekend" : "doba", ")"), /*#__PURE__*/React.createElement("span", null, fmtPLN(rc.rental)));
   }), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
-  }, /*#__PURE__*/React.createElement("span", null, "Transport (", calc.billKm, " km p\u0142atne)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.transport))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Transport (", calc.billKm, " km p\u0142atne - 2 kursy x 2 strony)"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.transport))), /*#__PURE__*/React.createElement("div", {
     className: "calc-line"
   }, /*#__PURE__*/React.createElement("span", null, "Dodatki"), /*#__PURE__*/React.createElement("span", null, fmtPLN(calc.addonsSum))), calc.selPkg && /*#__PURE__*/React.createElement("div", {
     className: "calc-line",
@@ -7509,7 +7537,7 @@ function Ideas({
       reload();
     } catch (ex) {
       setErr(String(ex.message));
-    }
+    } finally { setSaving(false); }
   };
   const vote = async i => {
     try {
